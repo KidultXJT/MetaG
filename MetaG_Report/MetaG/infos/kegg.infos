@@ -1,0 +1,8 @@
+数据库名称	划分层级	该层级的描述
+KEGG	Level1	KEGG 代谢通路第一层级 6 大代谢通路
+KEGG	Level2	KEGG 代谢通路第二层级 43 种子 pathway
+KEGG	Level3	KEGG pathway id (map00010,ko00010)
+KEGG	KO	KEGG ortholog group (K00010)
+KEGG	EC	KEGG EC Number (EC 3.4.1.1)
+KEGG	Module	KEGG Module Number (M00165)
+

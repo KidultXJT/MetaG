@@ -1,0 +1,609 @@
+---
+metagenome:
+    intro: 微生物群体几乎存在于这个世界每一个生态群落之中，从个体体表到肠道，从高原空气到深海海底淤泥，从冰川冻湖到火山岩浆都无处不在，并扮演着不可或缺的角色。对微生物的研究从 Antoni van Leeuwenhoek 发明显微镜开始的数百年中，主要基于纯培养的研究方式。在数以万亿计的微生物种类中，仅<b>0.1%~1%</b>的物种可培养，极大地限制了对微生物多样性资源的研究和开发。Metagenomics(翻译成元基因组学，或者翻译成宏基因组学)，是由 Handelman[1] 最先提出的一种<b>直接</b>对微生物群体中包含的<b>全部基因组信息</b>进行研究的手段。之后， Kevin[2] 等对 Metagenomics 进行了定义，即"<b>绕过对微生物个体进行分离培养，应用基因组学技术对自然环境中的微生物群落进行研究</b>"的学科。它规避了对样品中的微生物进行分离培养，提供了一种对不可分离培养的微生物进行研究的途径，更真实的反应样本中微生物组成、互作情况，同时在分子水平对其代谢通路、基因功能进行研究[3]。近年来，随着测序技术和信息技术的快速发展，利用新一代测序技术(Next Generation Sequencing)研究Metagenomics，能快速准确的得到大量生物数据和丰富的微生物研究信息，从而成为研究微生物多样性和群落特征的重要手段[4,5]。如致力于研究微生物与人类疾病健康关系的人体微生物组计划(HMP, Human Microbiome Project,http://www.hmpdacc.org/ )，研究全球微生物组成和分布的全球微生物组计划(EMP, Earth Microbiome Project,http://www.earthmicrobiome.org/ )都主要利用高通量测序技术进行研究。
+    diff: 通常我们会把Meta 16S(Meta扩增子)归为Metagenomic，Meta 16S(Meta扩增子)与这里的Metagenome的区别在于，Meta 16S(Meta扩增子)是研究微生物的特定扩增序列，而Metagenome则是研究微生物的<b>全部基因组信息</b>。他们在数据量上的区别特别大，宏基因组研究的是微生物的<b>全部基因组信息</b>，如果全覆盖的情况下，每个原核微生物大概是4M的数据量，假设，研究的是人类皮表上的微生物，那在全覆盖单个样品所有微生物基因组的情况下，大概是有100G以上的数据量，考虑到做Metagenome通常不是为了全覆盖<b>全部基因组信息</b>，而是，找到物种以及可能的功能，根据取样的不同，通常是会测1G-10G的数据量，通常足够覆盖所有物种(如果物种组成种类比较多且分布相对不均匀，可以考虑增加测序深度，普通人体样品建议1G以上，肠道或粪便样品建议大于3G，普通环境样品建议3G以上, 水体样品建议3G-5G，土壤样品建议5G-8G，微生物复杂度较高数量较多的样品建议8G以上)；Meta 16S(Meta扩增子)仅仅是研究微生物的某段保守的基因组序列----16S rDNA序列，全长大概是1524bp，通常二代测序仅研究其中的某些V区(高变区，例如常见的V3-V4测序插入片段约为460bp)，假设同样为人类表皮上的微生物，通常约有10000到100000条reads，即约4Mb到50Mb不等的数据量(按V3-V4测序插入片段长度来算，具体看测序深度需求，10000以上基本能覆盖大部分类型的微生物)。
+
+experiment_workflow:
+    intro: 从环境(如土壤、海洋、淡水、肠道等)中采集实验样品，进行必要的处理后，将样品以适当形式(如原始采样样品、已提取的DNA样品等)送往公司。我司将对接收到的样品进行必要的<b>预实验</b>处理。检测合格的样品，经过片段筛选、建库并做相应的实验检测。检测合格的文库将采用Illumina <b>Hiseq</b>, <b>NovaSeq</b>等高通量测序平台进行测序，测序得到的下机数据(Raw Data 通常是双端Fastq格式文本数据)将用于后期信息分析。从 DNA 样品到最终数据获得，样品检测、建库、测序每一个环节都会对数据质量和数量产生影响，而数据质量又会直接影响后续信息分析的结果。为了从源头上保证测序数据的准确性、可靠性，诺禾致源对样品检测、建库、测序每一个生产步骤都严格把控，从根本上确保了高质量数据的产出。建库测序流程图如下: 
+    image:
+        - Page_Config/image/flow_001.png
+        - Page_Config/image/flow_002.png
+    image_text:
+        - 建库流程示意图
+        - 实验流程示意图
+
+analysis_workflow:
+    intro: 宏基因组分析，在测序得到的原始数据(Raw Data)会存在一定比例的低质量数据，为了保证后续信息分析结果的准确可靠，首先要对原始数据进行过滤处理，得到有效数据(Clean Data)；然后从各样品质控后的 Clean Data 出发，进行 Metagenome <b>单样品组装</b>，并将各样品未被利用上的 reads 放在一起进行<b>混合组装</b>，以期发现样品中的低丰度物种信息；然后，从单样品和混合组装后的 contigs/Scaffold 出发，进行<b>基因预测</b>，综合各样品的 CleanData，可获得预测基因在各样品中的<b>丰度信息</b>；物种注释有两种方法，一种是基于<b>拼接序列Contigs</b>与微生物数据库(核酸库)进行比对的物种注释的方法，另一种是从<b>预测基因</b>出发与微生物库(蛋白或者核酸库)进行比对，获得预测基因的物种注释信息，并结合基因丰度表，获得不同分类层级的物种丰度表；从预测基因出发，进行代谢通路(KEGG)，同源基因簇(eggNOG)，碳水化合物酶(CAZy)等的基础功能注释和丰度分析；基于物种丰度表和功能丰度表，可以进行丰度聚类分析，PCA和NMDS 降维分析，Anosim分析，样品聚类分析等<b>丰度分析</b>；当有<b>分组</b>信息时，可以进行Metastat和LEfSe多元统计分析以及代谢通路比较分析，挖掘样品之间的物种组成和功能组成的<b>显著差异分析</b>；利用预测基因与抗生素抗性基因数据库ARDB(Antibiotic Resistance Genes Database)进行高级功能注释，可以获得抗性基因丰度分布情况以及这些抗性基因的物种归属和抗性机制；另外，还可以基于标准分析结果，进行一系列高级信息分析----CCA/RDA，肠型分析，拷贝数变异(CNV)分析，CAG/MLG分析，病原与宿主互作数据库(PHI)注释，分泌蛋白预测，III型分泌系统效应蛋白预测，细菌致病菌毒因子(VFDB)注释，抗性基因&转移元件分析(MAG/MGE)等。结合环境因子、病理指标或特殊表型进行深入关联研究，能够为进一步深入研究和利用样品的物种和功能提供理论。
+    text: 信息分析分以下几个步骤：
+    list:
+        - 原始下机数据处理
+        - Reads组装：单样品组装和混合组装
+        - 基因序列预测与功能注释
+        - 物种注释
+        - 丰度分析
+        - 显著差异分析
+        - 高级分析
+    image:
+        - Page_Config/image/flow_003.png
+        - Page_Config/image/flow_004.png
+    image_text:
+        - 分析示意图
+        - 分析流程图
+
+isoseq_workflow:
+    intro: PacBio Sequel 测序平台是基于单分子实时（SMRT）的测序技术，原始测序数据中会包含以 0 个， 1 个或 2 个分子为模板测得的数据，但 0 个或 2 个分子的信息会对后续的信息分析造成很大的干扰，采用软件 SMRT Link v4.0 对输出进行过滤和处理，最终得到的数据即为有效数据。接着采用 Iso-Seq 流程获取全长转录本序列。
+    image:
+        - Page_Config/image/flow_004.png
+    image_text:
+        - IsoSeq分析流程示意图
+
+clean_data: 
+    intro: 采用 Illumina HiSeq，NovaSeq等测序平台测序获得的原始数据(Raw Data)存在一定比例低质量数据，为了保证后续分析的结果准确可靠，需要对原始的测序数据进行预处理，获取用于后续分析的有效数据(Clean Data)。具体处理步骤如下：
+    list:
+        - 去除含Adapter的Reads
+        - 去除含N比例高的reads
+        - 去除低质量Reads(质量值Q≤20的碱基数占整条Read的50％以上)
+fastqc:
+    result: 使用 <a href="ttp://www.bioinformatics.babraham.ac.uk/projects/fastqc/" target="_blank">FastQC</a>对原始数据以及过滤后的数据进行数据质量分析，结果见下方的FastQC文件夹超链接，文件夹中的*.html网页文件，请使用用浏览器打开。
+    list: CleanData/fastQC
+
+Summary:    
+    dat_table: CleanData/stats/Data_Info.xls
+    footer:
+        - Raw/Clean Bases(%) 过滤前(Raw)后(Clean)碱基数，以及过滤后碱基数占过滤前碱基数百分比
+        - Length (Max/Mean/Min) 过滤前后Reads长度
+    href: CleanData/stats/
+
+Filter:
+    flt_table: CleanData/stats/Filter_Info.xls
+    footer:
+        - Raw/Clean Q20 过滤前(Raw)后(Clean)Q20碱基数
+        - Raw/Clean Q30 过滤前(Raw)后(Clean)Q30碱基数
+        - Raw/Clean GC(%) 过滤前(Raw)后(Clean)GC碱基比例
+        - Raw/Clean N(%) 过滤前(Raw)后(Clean)N碱基比例
+    href: CleanData/stats/
+
+FltCompose:
+    cp_table: CleanData/stats/Reads_Class.xls
+    footer: 
+        - Class 分类类型
+        - Count 被过滤的Reads数量(整条过滤)
+        - Percentage 占样品全部(Raw)Reads的比例
+        - Adaptor 被过滤含有测序接头序列
+        - Contain N 被过滤含有大比例N的序列
+        - PolyA 被过滤含有PolyA尾序列
+        - Low Qual 被过滤低质量序列(平均质量低)
+        - Clean Reads 过滤后(Clean)的Reads
+    image:
+        - CleanData/stats/Reads_Class.png
+    image_text: Reads组成堆叠图
+
+smpFlt: 
+    text: 每个样品根据上述过滤手段进行过滤与统计，得到结果见文件夹：
+    href: CleanData/filter
+    header: 过滤前后质量图
+    footer: 
+        - X轴上，1-150bp代表Read1的碱基位置，151-300bp代表Read2的碱基位置(假设PE150)
+        - A、T、C、G曲线各代表每个位置A、T、C、G碱基的比例，碱基组成平衡的情况下，A、T 曲线重合，G、C 曲线重合。N 曲线代表每个位置未被测到的碱基的比例
+        - mean 曲线表示碱基在每个位置的平均质量
+        - Q20和Q30曲线分别代表碱基在每个位置的质量值>=Q20或者>=Q30的碱基比例
+
+metaG_asm:
+    intro: 组装是指把序二代测序的短序列连成比较长的序列(Contigs/Scaffold)。组装原理点击下绿色按钮----Assembly原理查看:
+    asm_list_text: 组装方式一般分为三种(在二代序列组装上，常用De Bruijn Graph)：
+    asm_list: 
+        - De Bruijn Graph
+        - Overlap-Layout-Consensus(OLC)
+        - Greedy Assembly
+    asm_image: 
+        - Page_Config/image/assembly.png
+    asm_text: De Bruijn Graph组装方法，首先将reads打断成长度为K(Kmer)的核酸片段，在利用Kmer间的overlap关系构建De Bruijn Graph，再通过De Bruijn Graph得到基因组序列[1]。De Bruijn Graph算法最早应用于如细菌类小的基因组的组装上，较OLC算法，De Bruijn Graph更适合于短序列的de novo组装(2代测序)，而OLC更适合于长序列组装(3代测序)。
+
+smp_asm:
+    intro: 单个样品组装，每一个样品的测序序列分别(抽取)组装。从各样品质控后的 Clean Data 出发，进行 Metagenome <b>单样品组装</b>，全部样品组装结果进行合并去冗余。
+    list:
+        - 选取多个K-mer(默认 Kmer21,Kmer29,Kmer39,Kmer59,Kmer79,Kmer99,Kmer119,Kmer141)进行<b>迭代组装</b>
+        - 过滤掉1000bp(可选)以下的Contigs/Scaffold
+        - 把Clean Data(质控以及过滤掉宿主后的序列)全部样品组装结果进行比对, 得到未被利用的Reads(Unmap Reads)
+        - 为了组装结果的有效性，进行了Contigs/Scaffold去冗余
+    result:
+        text: 单个样品的组装结果统计与评价包含了长度分布情况和GC比例情况，通常，由于取样微生物的数量基因组情况未知(有多少个菌和每个菌的基因组大小未知)，我们无法判断测序深度是否达到了取样宏基因组的全部覆盖，通常来说，覆盖越好，组装出来的Contigs/Scaffold长度越长(具体查看Length Distribution结果)；没有宿主污染的宏基因组微生物的GC比率会呈现出一种单峰趋势(具体查看GC Ratio结果)。
+        eval_table: Assembly/Samples/EvalAssembly.xls
+        list:
+            - GC G+C碱基占全部碱基数的百分比
+            - N50 累加Contigs长度达到碱基数的50%时，对应那个片段的长度
+            - Min Length 最短Contigs的长度
+            - Max Length 最长Contigs的长度
+            - Bases 碱基总数
+            - Counts Contigs序列总数
+            - Samples 所有样品的组装过滤后结果
+        href: Assembly/Samples/
+        len_header: 单样品组装结果评价(长度分布)
+        len_footer: 
+            - X轴 Length(bp)
+            - Y轴 Counts数(在该长度范围的Reads数量)
+        gc_header: 单样品组装结果评价(GC分布)
+        gc_footer: 
+            - X轴 GC Ratio(%)
+            - Y轴 Counts数(在该GC Ratio范围的Reads数量)
+
+mix_asm:
+    intro: 混合组装，使用单样品组装后所有样品Unmap的Reads进行混合组装，目的是组装出低丰度微生物(单个样品的Reads对该低丰度菌的基因组覆盖低，通过混合所有Unmap的Reads，由于有可能整体基因组覆盖增加，有可能组装出低丰度微生物)。混合组装结果进行去冗余，得到最后的混合组装结果，与单样品组装结果进行合并去冗余，得到最后的全部组装结果。
+    list:
+        - 选取多个K-mer(默认 Kmer21,Kmer29,Kmer39,Kmer59,Kmer79,Kmer99,Kmer119,Kmer141)进行<b>迭代组装</b>
+        - 过滤掉1000bp(可选)以下的Contigs/Scaffold
+        - 为了组装结果的有效性，进行了Contigs/Scaffold去冗余
+    result:
+        text: Samples代表单样品组装过滤后的结果；Mix是混合组装过滤后结果；All是合并Samples和Mix的结果。后序均以All结果出发，进行基因预测，物种注释等。
+        eval_table: Assembly/Mix/EvalAssembly.xls
+        class:
+            - All
+            - Samples
+            - Mix
+        list:
+            - GC G+C碱基占全部碱基数的百分比
+            - N50 累加Contigs长度达到碱基数的50%时，对应那个片段的长度
+            - Min Length 最短Contigs的长度
+            - Max Length 最长Contigs的长度
+            - Bases 碱基总数
+            - Counts Contigs序列总数
+            - Samples 单样品组装结果合并去冗余结果(单样品组装表里的Mix)
+            - Mix Unmap序列(混合)组装结果去冗余
+            - All 最终组装结果(Samples加上Mix序列根据覆盖度过滤后的结果)
+        href: Assembly/Mix/
+        len_header: 组装结果评价(长度分布)
+        len_footer: 
+            - X轴 Length(bp)
+            - Y轴 Counts数(在该长度范围的Reads数量)
+        gc_header: 组装结果评价(GC分布)
+        gc_footer: 
+            - X轴 GC Ratio(%)
+            - Y轴 Counts数(在该GC Ratio范围的Reads数量)
+eval_asm:
+    intro: 组装完成后，使用原始Reads比对，整体比对率较高，代表组装结果有效性较高(组装的Contigs/Scaffold能有效代表大部分Reads)。后序物种等丰度分析是基于Contigs/Scaffold的比对结果。
+    list:
+        - Samples 样品ID
+        - Align(%) 比对率
+    href: Assembly/Align
+    al_table: Assembly/Align/AlignRatio.xls
+
+tax_assign:
+    intro: 宏基因组的物种注释分为两种方案，第一种是基于Contigs/Scaffold与核酸数据库进行比对(microNT)得到Contigs/Scaffold的物种注释信息；第二种是基于Contigs/Scaffold的预测基因(CDS，rDNA，tDNA等)与氨基酸(蛋白)数据库(microNR)进行比对物种注释结果。通常两种注释结果(组成)类似，本流程结果基于第一种方案进行物种注释。
+    result:
+        text: 非冗余的组装核酸序列与数据库。
+        list:
+
+asm_eval:
+    intro: 宏基因组由于里面有很多
+
+classify:
+    intro: 宏基因组由于插入片段是取样里的所有微生物的基因组序列的随机打断片段，多个片段连在一起就是微生物的基因组，但是，在测序深度达不到基因组数据量的情况下(随着生物/基因组数量越多，越难达到全覆盖)，那些插入片段不一定能覆盖取样微生物群的全部基因组。通常，组装出来的Contigs/Scaffold可以认为是一个微生物的(不完全)基因组，通过这个Contigs/Scaffold序列，我们能通过与数据库比对知道Contigs/Scaffold属于哪个已知的微生物。把Contigs/Scaffold与从NCBI的NR数据库中抽提出的细菌(Bacteria)、真菌(Fungi)、古菌(Archaea)和病毒(Viruses)数据进行比对(设定阈值为evalue<=1e-5)。以Contigs/Scaffold作为一个生物，对注释物种进行定量分析。另外，还存在另外一种注释方案，以预测基因的氨基酸序列与Nr数据库(微生物)进行比对，从而知道氨基酸序列的物种注释信息。
+    list:
+        - Reads 覆盖度
+        - AvgDepth 覆盖平均深度 
+        - RPKM 校正值
+        - FPKM 校正值
+
+assign:
+    intro: 物种注释是基于Contigs进行注释，每一条Contigs都有一份对应的物种Taxonomy信息，结果表格见下表：
+    result:
+        href: Taxonomy/
+        assign_table: Taxonomy/Taxonomy
+        assign_footer: 
+            - 第一列是ContigsID
+            - 第二列是物种Taxonomy信息
+            - d for Kingdom/Domain 界/域
+            - p for Phylum 门
+            - c for Class 纲
+            - o for Order 目
+            - f for Family 科
+            - g for Genus 属
+            - s for Species 种
+
+krona:
+    intro: 基于上述的物种注释结果(没有定量信息)，绘制Krona多维饼图(每一圈是一个分类水平)，展示注释结果的组成情况。Krona结果是一个HTML文件，结果见文件夹：
+    result: 
+        href: Taxonomy/Taxonomy/
+        krona_table: Taxonomy/Taxonomy.krona.Text
+        krona_html: Taxonomy/Taxonomy.krona.HTML
+        krona_pdf: Taxonomy/Taxonomy.krona.PDF
+        krona_image:
+            - Taxonomy/Taxonomy.krona.PNG
+        krona_text: 下面展示的是Krona截图结果，结果以html动态网页展示，可以在动态网页里面调整整体结果。
+        krona_footer_list:
+            - 点击色块展开该色块分类
+            - 每一层代表一个分类水平
+            - 百分比是物种被注释的频率百分比(非物种定量)
+
+quantify: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM，这部分的定量结果见下面文件夹中的*xls文件。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*.xls文件。
+    result: 
+        href: Taxonomy/Quantify/
+        len_header: 物种丰度表
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - 每一列代表一个样品
+            - 每一行代表一个物种(在表格分类水平的名称)
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+
+topbar: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*TopXBar.PNG/*TopXBar.PDF(矢量图，默认展示丰度前10的物种)文件。
+    result: 
+        emphref: Taxonomy/Quantify/AvgDepth
+        href: Taxonomy/Quantify/
+        len_header: Top10 物种丰度柱状图
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - X轴是对应分类水平的物种名称
+            - Y轴是物种丰度
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+
+venn:
+    intro: 为了考察指定<b>样品间</b>/<b>组间</b>的基因数目分布情况，分析不同样品/组之间的基因共有、特有信息，绘制了韦恩图(Venn)。组间以两两韦恩图(Venn Graph)进行展示：
+    result:
+        emphref: Taxonomy/
+        href: Taxonomy/
+        len_header: 物种丰度(差异)韦恩图
+        len_footer:
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - Reads 覆盖度
+        explain: 上图每一部分的交并集对应的表格见文件夹下面的*_Venn.xls，其中，每一个sheet是一个(交并)集合。使用Reads定量方案进行Venn分析，当Reads(Counts覆盖度)大于0时，该样品/分组拥有该物种。
+
+rltabd: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM结果的相对丰度(%)结果。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*.xls文件。Dominant的意思是指优势菌属(默认 1%以上优势菌)。
+    result: 
+        href: Taxonomy/RelativeAbundance/
+        len_header: 物种相对丰度表
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - 每一列代表一个样品
+            - 每一行代表一个物种(在表格分类水平的名称)
+            - Reads 覆盖度相对丰度
+            - AvgDepth 覆盖平均深度相对丰度
+            - RPKM 校正值相对丰度
+            - FPKM 校正值相对丰度
+
+heatmap: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM结果的相对丰度(%)结果。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*_Heatmap.png/*_Heatmap.tiff(矢量图，默认展示Dominant物种)文件。Dominant的意思是指优势菌属(默认 1%以上优势菌)。
+    result: 
+        emphref: Taxonomy/RelativeAbundance/AvgDepth
+        href: Taxonomy/RelativeAbundance/
+        len_header: 物种相对丰度热图
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - X轴是样品ID
+            - Y轴是物种在该分类水平的名称
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+        explain: 上图展示的是相对丰度Dominant热图，Column是指数据做了Column校正(对应文件夹下的*cHeatmap.png)，Row是指数据做了Row校正(对应文件夹下的*rHeatmap.png)。X轴是样品，Y轴是该分类水平下的物种名称，通过Column/Row校正后会校正物种间(Column)或者样品间(Row)的区别。
+
+stack: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM结果的相对丰度(%)结果。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*_Stack.png/*_Stack.tiff(矢量图，默认展示Dominant物种，其他合并为Others)文件。Dominant的意思是指优势菌属(默认 1%以上优势菌)。
+    result: 
+        emphref: Taxonomy/RelativeAbundance/AvgDepth
+        href: Taxonomy/RelativeAbundance/
+        len_header: 物种相对丰度堆叠图
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - X轴是样品ID
+            - Y轴是物种相对丰度
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+        explain: 上图展示的是相对丰度Dominant堆叠图。
+
+box: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM结果的相对丰度(%)结果。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*_Stack.png/*_Stack.tiff(矢量图，默认展示Dominant物种，其他合并为Others)文件。Dominant的意思是指优势菌属(默认 1%以上优势菌)。
+    result: 
+        emphref: Taxonomy/RelativeAbundance/AvgDepth
+        href: Taxonomy/RelativeAbundance/
+        len_header: 物种相对丰度(分布)箱形图
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - X轴是样品ID
+            - Y轴
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+        explain: 上图展示的是相对丰度Dominant箱形图，不包含分组信息。如果离散程度越大，说明该物种在不同样品间差距相对较大。
+
+rltabDiff: 
+    text: 关于宏基因组对物种定量(丰度)分析，我司报告提供了4个方案：Reads，AvgDepth，RPKM，FPKM结果的相对丰度(%)结果。结果根据最基本的物种分类学水平分为：界(Kingdom)门(Phylum)纲(Class)目(Order)科(Family)属(Genus)种(Species)7个水平，不同水平的定量结果见对应文件夹下的*_Stack.png/*_Stack.tiff(矢量图，默认展示Dominant物种，其他合并为Others)文件。Dominant的意思是指优势菌属(默认 1%以上优势菌)。
+    result: 
+        emphref: Taxonomy/RelativeAbundance/AvgDepth
+        href: Taxonomy/RelativeAbundance/
+        len_header: 物种相对丰度(分布)箱形图
+        len_footer: 
+            - Kingdom/Phylum/Class/Order/Family/Genus/Species 均是代表分类水平
+            - X轴是样品ID
+            - Y轴
+            - Reads 覆盖度
+            - AvgDepth 覆盖平均深度
+            - RPKM 校正值
+            - FPKM 校正值
+        explain: 上图展示的是相对丰度Dominant箱形图，不包含分组信息。如果离散程度越大，说明该物种在不同样品间差距相对较大。
+        
+beta:
+    intro: (物种)样品间差异是对不同样品的微生物群落构成进行比较分析，关注的是不同生境下的微生物群落组成差异(<b>样品间</b>的多样性)。这个差异以距离(Bray-Curtis,Euclidean,cor-spearman)来进行计算，以距离矩阵热图和PCoA进行可视化展示。
+    quot: <b>Beta多样性:与生境有关，关注样品间的差异(距离) </b>
+    text: 本报告中的(物种)样品间差异以欧氏距离，马氏距离，Bray Curtis距离，Jaccard距离，4种method进行分析，关注的是样品间的差异(距离)，以及Correlation Spearman相关性分析作为样品间相关性的分析，从而解释样品间关系。以距离/相关性系数矩阵热图以及PCoA热图进行结果展示。另外提供样品聚类树(分别以马氏距离，欧氏距离，Bray Curtis距离，Jaccard距离作为距离计算method，以UPGMA(average)作为聚类分析method)，以及PCA(无限制)结果。
+    result:
+        href: Beta/
+        exphref: Beta/AvgDepth/
+        div_table: Beta/AvgDepth/AvgDepth_Phylum_Dominant_BrayCurtis_div.xls
+
+cor:
+    intro: 物种相关性分析是研究物种间的相关性，以揭示物种间可能存在的关系。
+    text: 本报告中物种相关性分析展示物种间的相关性分析，相关性系数是Spearman，结果以热图展示(展示网络图非本项目结果)
+    result:
+        href: Beta/
+        emphref: Beta/AvgDepth/
+        emp_table: Beta/AvgDepth/AvgDepth_Phylum_Dominant_CorSpearman.xls 
+
+alpha:
+    intro: Alpha多样性主要关注局域均匀生境下的物种数目，因此也被称为<b>生境内</b>的多样性。通常用于度量群落生态中物种的丰富度，是反映物种丰富度和均匀度的综合指标。群落生态学中研究微生物多样性，通过单样品的多样性分析(Alpha 多样性)可以反映微生物群落的丰度和多样性。Alpha多样性指数主要分为两种：
+    quot: <b>Alpha多样性:与生境无关，关注自身的样品多样性</b>
+
+taxdiff:
+    intro: 物种差异分析是基于上述Reads，AvgDepth，RPKM，FPKM的定量方案分别进行显著差异分析(T-test，LEfSe，metastats等)，以及PCA，Cluster等。显著差异分析需要有分组且分组重复(包含样品数)大于等于3，PCA，Cluster(相对丰度聚类热图也属于物种差异分析部分)则需要总样品数量大于等于3。没有分组或者分组重复不到达3的差异分析可以参考丰度Venn结果。
+    list:
+        - Reads 覆盖度
+        - AvgDepth 覆盖平均深度
+        - RPKM 校正值
+        - FPKM 校正值
+    result: 
+        href: GroupsDiff/Taxonomy/
+
+lcgd: 
+    intro: 组间差异分析是对变量在不同组之间平均值的差异显著性进行检验的统计学方法，可以用于考察分组变量对于所研究变量取值的影响程度，并进而分析分组变量与所研究变量之间潜在关联性。
+    result: 
+        href: GroupsDiff/Taxonomy/Normal/
+        exphref: GroupsDiff/Taxonomy/Normal/AvgDepth/
+        anova_text: 普通显著差异分析分为两种，一种是多分组间显著差异，本报告使用的是ANOVA来进行分析。
+        anova_table: GroupsDiff/Taxonomy/Normal/AvgDepth/AvgDepth_Phylum_Dominant.ANOVA.p.filtered.0.05.tsv
+        anova_header: ANOVA 箱形图(p值过滤)
+        anova_footer: 
+            - Mean 变量在各组中的均值
+            - SE 变量在各组中的标准误
+            - statistic 统计量
+            - p.value P值
+            - p.value.adjusted 校正P值(BH校正)
+        anova_explain: 
+            - X轴 该分类水平上的物种名称
+            - Y轴 相对丰度
+            - 填充颜色(分组)
+        ttest_text: 普通显著差异分析分为两种，另外一种是分组两两差异，本报告使用的是T-Test来进行分析。
+        ttest_table: GroupsDiff/Taxonomy/Normal/AvgDepth/AvgDepth_Phylum_Dominant.pairwise.ttest.all.p.filtered.0.05.tsv
+        ttest_header: 
+            - T-Test 图(p值过滤)
+        ttest_footer:
+            - Mean 变量在各组中的均值
+            - SE 变量在各组中的标准误
+            - Mean.Difference 变量在各组中的均值差值
+            - CI.lower/upper 均值差异的置信区间(Confidence Interval)
+            - statistic 统计量
+            - p.value P值
+            - p.value.adjusted 校正P值(BH校正)
+        ttest_expplot: 
+            - GroupsDiff/Taxonomy/Normal/AvgDepth/AvgDepth_Dominant.pairwise.ttest.example.p.filter.png
+        ttest_explain: 
+            - X轴 该分类水平上的物种名称
+            - Y轴 相对丰度
+            - 填充颜色(分组)
+
+lefse:
+    intro: LEfSe是一种用于发现高维生物标识和揭示基因组特征算法。可用于基因，代谢和分类，区别两个或两个以上生物条件(或者是类群)。算法既关注丰度水平的差异也关注物种之间的关系(所以，需要提供分类进化树)。LEfSe (拥有生物学意义)的生物学统计差异算法有较强的识别功能。进行多重的检验来寻找丰度有差异的物种并评估这些差异是否符合预期的生物学行为。主要分为三步：1.使用Kruskal-Wallis秩和检验检测大分类中具有显著丰度差异的物种； 2.利用Wilcoxon秩和检验在上一步找到的物种中，进一步检测小分类（亚种）中具有显著丰度差异的物种；3.最后，采用线性判别分析(LDA)来估算上两步中找到的标志性物种的影响大小。
+    text: 根据上述计算过程，最后会得到一个表格(下表格.res)，表格中拥有p值和LDA得分的(分类)微生物为差异微生物，可以通过p值对微生物进行筛选。
+    result:
+        href: GroupsDiff/Taxonomy/LEfSe
+        res_table: GroupsDiff/Taxonomy/LEfSe/AvgDepth.LEfSe.FLT
+        res_table_footer: 
+            - Taxonomy：分类学注释
+            - Highest Mean：各个分组中平均丰度最高的分组的丰度结果
+            - Groups(with Highest Mean):上述的那个分组
+            - LDA SCORE： log10 LDA值
+            - P-Value： P值
+            - d for Kingdom/Domain 界/域
+            - p for Phylum 门
+            - c for Class 纲
+            - o for Order 目
+            - f for Family 科
+            - g for Genus 属
+            - s for Species 种
+        res_image:
+            - GroupsDiff/Taxonomy/LEfSe/AvgDepth.LEfSe.FLT.png
+            - GroupsDiff/Taxonomy/LEfSe/AvgDepth.LEfSe.FLT.cladogram.png 
+        res_image_text:
+            - LEfSe LDA值分布柱状图
+            - LEfSe 分类树(Cladogram)图
+        res_image_footer:
+            - LDA值分布柱状图：LDA值分布柱状图中展示了LDA Score大于阈值(阈值为4)的物种，即组间具有统计学差异的Biomarker。展示了不同组中丰度差异显著的物种，柱状图的长度代表差异物种的影响大小(即为 LDA Score)
+            - Cladogram图：在(分类学的微生物)进化分支图中，由内至外辐射的圆圈代表了由门(Phylum)至种(Species)的分类级别。在不同分类级别上的每一个小圆圈代表该水平下的一种(分类)微生物，小圆圈直径大小与相对丰度大小(上述表格的Highest Mean)呈正比。无显著差异的物种统一着色为黄色，差异物种Biomarker跟随组(上述Groups(with Highest Mean))进行着色，红色节点表示在红色分组中起到重要作用的微生物类群，绿色节点表示在绿色分组中起到重要作用的微生物类群，以此类推(LEfSe可以分析多组之间的差异)。图中英文字母表示的物种名称在右侧图例中进行展示(项目可能因为差异物种过多，图例会很长，可以通过调整参数等方式减少标注为差异的(分类)微生物)。
+
+genepred: 
+    intro: 以混合组装的Contigs开始，进行基因序列预测，保留200nt(含200nt)以上的预测基因，使用cd-hit过滤冗余基因。得到的非冗余基因集，过滤平均覆盖度小于2的基因，剩余的基因作为后序丰度分析的gene序列
+    list: 
+        - 基因序列预测
+        - 过滤冗余基因
+        - 基因序列统计分析(评价)
+        - 基因丰度分析
+        - 基因丰度差异分析
+    result: 
+        href: GenePred/fltGene/
+    eval_table: GenePred/fltGene/EvalGenePred.xls
+    eval_table: 
+        - Raw 基因序列预测原始结果
+        - Flt 基因预测过滤后结果
+    len_header: 基因核酸序/氨基酸列长度分布图
+    len_footer: 
+        - X轴 Length(bp)
+        - Y轴 Counts数(在该长度范围的Reads数量)
+    tbl: GenePred/RawPred/prokka.TBL
+    type_image:
+        - GenePred/RawPred/prokka.GeneTypes_Freq.PNG
+        - GenePred/RawPred/prokka_CDSTypes.PNG
+    type_text: 
+        - 预测基因频率图
+        - CDS预测图
+
+func:
+    intro: 功能注释主要是基于功能同源的序列往往具有序列相似性的原理，将去冗余后的基因序列，与不同的功能数据库进行序列比对，然后用比对到的序列的功能作为目标序列的功能。关于功能注释这里使用了两种方法进行注释，第一种是基于核酸序列的进行注释，另外一种是基于氨基酸序列进行注释(仅注释CDS核酸的氨基酸序列，rRNA/tRNA结果见基因预测)，本报告基于氨基酸序列进行注释。
+    text: 结果分为两种，一种是基础注释(BasicAnno)；另一种是高级注释(AdvanceAnno)。基础注释通常指的是没有特定性质的数据库，例如NR，KEGG，GO，EggNOG/COG等的数据库；高级注释通常指的是有特定性质的数据库，例如CAZy酶数据库，ARDB抗生素数据库等。本报告的默认输出是KEGG数据库，EggNOG/COG数据库，以及CAZy数据库。基于注释结果进行一系列统计与展示。
+    list: 
+        - KEGG
+        - EggNOG/COG
+        - CAZy
+    result:
+        href: FuncAnno/
+
+funstats:
+    text: 统计上述功能数据库的注释情况，结果以表格和韦恩图形式展示，Venn图中的交并集Gene序列ID的列表见结果文件夹*xls文件。
+    result: 
+        href: FuncAnno/stats
+        table: FuncAnno/stats/stats.txt
+        footer: 
+            - DataBase 被统计的数据库
+            - Annotation 能注释到该数据库信息的序列数量
+        header: 
+            - 注释统计韦恩图(Venn)
+        venn: 
+            - FuncAnno/stats/Venn.png
+
+kegg:
+    intro: KEGG 全称为 Kyoto Encyclopedia of Genes and Genomes。系统分析基因产物和化合物在细胞中的代谢途径以及这些基因产物的功能的数据库。KEGG 数据库于 1995 年由 Kanehisa Laboratories 推出 0.1 版，目前发展为一个综合性数据库，其中最核心的为 KEGG PATHWAY 和 KEGG ORTHOLOGY 数据库。在 KEGG ORTHOLOGY 数据库中，将行使相同功能的基因聚在一起，称为 Ortholog Groups (KO entries)，每个 KO 包含多个基因信息，并在一至多个 pathway 中发挥作用。而在 KEGG PATHWAY 数据库中，将生物代谢通路划分为 6 类，分别为：细胞过程（Cellular Processes）、环境信息处理（Environmental Information Processing）、遗传信息处理（Genetic Information Processing）、人类疾病（Human Diseases）、新陈代谢（Metabolism）、生物体系统（Organismal Systems），其中每类又被系统分类为二、三、四层。第二层目前包括有 43 种子 pathway；第三层即为其代谢通路图；第四层为每个代谢通路图的具体注释信息。
+    infos: Page_Config/infos/kegg.infos
+    text: KEGG注释是基于CDS氨基酸序列比对KEGG数据序列进行。KEGG注释结果，根据数据分类情况分为LevelA和LevelB。
+    anno_text: KEGG注释是使用比对的方法进行，得到的比对结果是8列的比对信息表格:
+    path_text: KEGG Pathway注释是基于KEGG注释结果进行的Pathway信息的补全，得到的结果是6列的多维度统计表格:
+    map_t: map在KEGG数据库里对应的是下面这样的通路图(pathway)，其背后是一个ko，ko对应也是一个通路，每个ko ID是以ko开始，后面跟着5位数字(例如，map02025，map号和ko号对应)，ko里面含有很多的KO注释，每个KO ID是以K开始的后面跟着5位数字(例如，K10084)。map/ko Pathway分为3层，第一层如下list，第二层是基于第一层的细分(例如，)，第三层是功能描述清晰的通路(例如，)，往下的分类是KO，共4层。
+    map_text: 在 KEGG ORTHOLOGY 数据库中，将行使相同功能的基因聚在一起，称为 Ortholog Groups (KO entries)，每个 KO 包含多个基因信息，并在一至多个 pathway 中发挥作用。而在 KEGG PATHWAY 数据库中，将生物代谢通路划分为 6 类(Level A)，如下列表。其中每类又被系统分类为二(Level B)、三(map)、四层(KO)。第二层目前包括有 43 种子 pathway(Level B)；第三层即为其代谢通路图(map)；第四层为每个代谢通路图的具体注释信息(KO)。
+    map_list: 
+        - Molecular interaction
+        - metabolism
+        - cellular processes
+        - human diseases
+    result: 
+        href: FuncAnno/BasicAnno/KEGG/
+        maphref: FuncAnno/BasicAnno/KEGG/SG_map
+        example: 
+            - Page_Config/image/map00480.png
+        example_text:
+            - map00480 KEGG通路图
+        anno_table: FuncAnno/BasicAnno/KEGG/SG.KEGG.Anno.xls
+        anno_footer:
+            - query CDS氨基酸序列ID
+            - subject 比对上数据库的序列ID
+            - KO 对应K号
+            - description K号的功能描述
+        anno_html: FuncAnno/BasicAnno/KEGG/SG.KEGG.html
+        anno_image_text:
+            - KEGG LevelA 水平注释统计柱状图
+            - KEGG LevelB 水平注释统计柱状图
+        path_table: FuncAnno/BasicAnno/KEGG/SG.KEGG.Path.xls 
+        path_footer:
+            - LevelA KEGG LevelA (分类)水平的注释结果
+            - LevelB KEGG LevelB (分类)水平的注释结果
+            - Pathway KEGG 通路注释结果
+            - ID Pathway对应的map ID(mapID对应一张手绘通路图，以及一个通路ko ID)
+            - Count 分子是这个通路相关序列数，分母是能被注释到KEGG信息的种序列数
+            - Genes 通路相关序列ID list
+            - KOs 通路相关序列注释到的K list
+        krona_png:
+            - FuncAnno/BasicAnno/KEGG/SG.KEGG.Path.krona.PNG
+        krona_pdf: FuncAnno/BasicAnno/KEGG/SG.KEGG.Path.krona.PDF
+        krona_html: FuncAnno/BasicAnno/KEGG/SG.KEGG.Path.krona.HTML
+        krona_list: 
+            - 第一圈是 Level A水平的注释结果
+            - 第二圈是 Level B水平的注释结果
+            - 第三圈是 Pathway水平的注释结果
+
+eggnog:
+    intro: eggNOG 数据库是利用 Smith-Waterman 比对算法对构建的基因直系同源簇 (Orthologous Groups) 进行功能注释，eggNOG V4.1 涵盖了 2,031 个物种的基因，构建了约 19 万个 Orthologous Groups。
+    infos: Page_Config/infos/eggnog.infos
+    text: EggNOG注释是基于CDS氨基酸序列比对EggNOG数据序列进行。KEGG注释结果，根据数据分类情况分为Level1和Level2。
+    anno_text: EggNOG注释是使用比对的方法进行，得到的比对结果是9列的比对信息表格:
+    result:
+        href: FuncAnno/BasicAnno/COG/
+        eggnog_table: FuncAnno/BasicAnno/COG/SG.COG.Anno.xls
+        eggnog_footer:
+            - queryname CDS氨基酸序列ID
+            - predicted_gene_name 预测到的功能基因ID
+            - OGs ortholog group ID
+            - COG cat COG Category COG分类信息
+            - eggNOG annot EggNOG 功能描述
+        cog_table: FuncAnno/BasicAnno/COG/SG.COG.EggNOG.xls
+        cog_footer:
+            - COG.cat COG Category COG分类信息
+            - eggNOG annot EggNOG 功能描述
+            - OGs ortholog group ID
+            - n 基于COG.cat/eggNOG/OGs的统计结果(用于绘制FreqBar)
+        cog_image_footer:
+            - COG Level1 水平 24 大功能类
+            - EggNOG Level2 Ortholog Group description
+            - OGs Ortholog Group ID
+        
+         
+   
+    
+
+fun:
+    class:
+        - 
+            title: NR
+            desc: 由 NCBI 创建并维护，其特点在于内容比较全面，同时注释结果中会包含有物种信息，可作物种分类用。
+        - 
+            title: Swissprot
+            desc: Swiss-Prot是一个精选的蛋白质序列数据库，它提供一个高水平的注释结果，例如一个蛋白质功能、其域结构、翻译后修饰、变异等的描述。
+        - 
+            title: KEGG
+            desc: KEGG 全称为 Kyoto Encyclopedia of Genes and Genomes。系统分析基因产物和化合物在细胞中的代谢途径以及这些基因产物的功能的数据库。
+        - 
+            title: eggNOG
+            desc: eggNOG是基于直系同源蛋白进行分组比对的一个公共资源数据库，提供了不同分类水平蛋白的直系同源分组（Orthologous Groups ，OG），包括真核物种、原核物种及病毒的数据信息。它扩展了COG数据库的分类方法，采用无监督聚类算法在全基因组范围内推导基因功能，更适用于谱系特征基因的分析。
+        - 
+            title: GO
+            desc: 一套国际标准化的基因功能描述的分类系统。 GO 分为三大类： 1）细胞组分（Cellular Component）：用于描述亚细胞结构、位置和大分子复合物，如核仁、端粒和识别起始的复合物； 2）分子功能（Molecular Function）：用于描述基因、基因物个体的功能，如与碳水化合物结合或 ATP 水解酶活性等；3）生物过程（Biological Process）：用来描述基因编码的产物所参与的生物过程，如有丝分裂或嘌呤代谢等。 
+        - 
+            title: Pfam
+            desc: 蛋白质家族数据库（Pfam）是蛋白质家族的集合，每个蛋白质家族由多序列比对和隐马尔科夫模型描述文件表示。
+ambiguous_annot:
+    intro: 为获得全面的基因功能信息，我们进行了五大蛋白功能数据库（Nr, Swissprot, KEGG, COG/KOG, GO）注释。
+lnc_annot:
+    intro: Rfam 是一个包含各种ncRNA家族信息的数据库，包括RNA的二级结构保守区域，mRNA顺式作用元件和其他RNA元件。它根据ncRNA在进化层面上的共同祖先将ncRNA分成不同的家族，每一个家族由多序列比对后预测的二级结构及协方差构成。为了更好地再进化层面对lncRNA进行注释，我们用INFERNAL通过多序列比对，二级结构及协方差模型，根据保守序列及二级结构对所有预测lncRNA进行分类。
+
+ssr:
+    intro: 我们按照以下配置参数使用软件 MISA 对转录组的所有转录本进行搜索，寻找转录本中的 SSR 。
+    config_header: 配置参数信息：
+    config_list:
+        - definition ( unit_size,min_repeats )，unit_size：串联重复单元的长度，min_repeats：最小重复数。2-6说明对于2个核苷酸的重复单元，需要至少6个重复才会被认为是SSR。设置：2-6 3-5 4-4 5-4 6-4
+        - interruptions ( max_difference_between_2_SSRs )，如果两个SSR序列的距离短于100bp，就会被合并当做一个SSR标记。设置：100
+    tfooter:
+        - ID ：转录本编号
+        - SSR nr. ：对于转录本的 SSR 序号，如 2，表示该 SSR 是此转录本上的第 2 个 SSR
+        - SSR type ：SSR 类型，如 P3，表示重复拷贝数为 3，c 表示该 SSR 标记序列中的短串联重复序列不止一条
+        - SSR ：短串联重复序列
+        - size ：序列的长度
+        - start ：SSR 序列在转录本上的起始位置
+        - end ：SSR 序列在转录本上的终止位置
+
+refList:
+    - 
+        title: TopHat2: accurate alignment of transcriptomes in the presence of insertions, deletions and gene fusions.
+        desc: Genome biology, 2013, 14(4): R36.
+        href: http://www.ncbi.nlm.nih.gov/pubmed/23618408
+    - 
+        title: From FastQ Data to High-Confidence Variant Calls: The Genome Analysis Toolkit Best Practices Pipeline.
+        desc: CURRENT PROTOCOLS IN BIOINFORMATICS 2013 43:11.10.1-11.10.33.
+        href: http://www.ncbi.nlm.nih.gov/pubmed/25431634
+
+---
