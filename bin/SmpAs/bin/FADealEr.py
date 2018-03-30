@@ -1,0 +1,1 @@
+/Bio/User/xiejunting/EzMetaG/EzMetaAs/MetaGDenovo/bin/FADealEr.py

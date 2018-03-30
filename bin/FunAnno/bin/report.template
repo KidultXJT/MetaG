@@ -1,0 +1,104 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>{{smp}}</title>
+<style type="text/css">
+	a {
+		text-decoration: none;
+		outline: none;
+	}
+	a:hover {
+		color:#FF0000;
+		text-decoration:none;
+		outline:none;
+	}
+	body {
+		font-family: "Microsoft YaHei","微软雅黑","雅黑宋体","新宋体","宋体","Microsoft JhengHei","华文细黑",STHeiti,MingLiu;
+		background-color: #FFFFFF;
+		padding-left: 8%;
+		padding-right: 8%;
+	}
+	table {
+		font-size: 14px;
+		width: 100%;
+		max-width: 100%;
+		background-color: transparent;
+		border-collapse: collapse;
+		border-spacing: 0;
+		display: table;
+		border: 1px solid #dddddd;
+	}
+	th {
+		background-color: rgba(2,79,101,1);
+		color: #fff;
+	}
+	td, th {
+		text-align: center;
+		padding: 5px;
+		border: 1px solid #dddddd;
+	}
+	tr:hover{
+		background-color: #f5f5f5;
+	}
+	table caption{
+		font-weight: bold;
+		color: rgba(2,79,101,1);
+		font-size: 1.5em;
+		padding-bottom: 12px;
+	}
+	.go_graph {
+		text-align: center;
+		font-weight: bold;
+		font-size: 1.5em;
+		color: rgba(2,79,101,1);
+		padding-bottom: 12px;
+	}
+	#bt {
+		font-size: 14px;
+		position: fixed;
+		right: 2%;
+		bottom: 5%;
+	}
+</style>
+<script type="text/javascript">
+<!--
+function reSize2() {
+    try {
+    parent.document.getElementsByTagName("iframe")[0].style.height = document.body.scrollHeight + 10;
+    parent.parent.document.getElementsByTagName("iframe")[0].style.height = parent.document.body.scrollHeight;
+    } catch(e) {}
+}
+
+preRow = null;
+preColor = null;
+function colorRow(trObj) {
+    if (preRow != null) {
+        preRow.style.backgroundColor = preColor;
+    }
+    preRow = trObj;
+    preColor = trObj.style.backgroundColor;
+    trObj.style.backgroundColor = "f2dede";
+}
+window.onload = function() {
+    setTimeout("reSize2()", 1);
+    }
+    //-->
+    </script>
+</head>
+<body>
+  <table>
+    <caption>Pathway Enrichment</caption>
+    <tr><th>#</th><th>Pathway</th><th>Count ({{total}})</th><th>Pathway ID</th></tr>
+    {% for v in rptDic %}
+    <tr><td>{{v[0]}}</td><td style="text-align: left;"><a href='#gene{{v[0]}}' title='click to view genes' onclick='javascript: colorRow(document.getElementsByTagName("table")[1].rows[{{v[0]}}]);'>{{v[1]}}</a></td><td>{{v[3]}}</td><td>{{v[2]}}</td></tr>
+    {% endfor %}
+  </table>
+    <p><br /></p>
+
+  <table>
+  	<caption>Pathway Detail</caption>
+  	<tr><th>#</th><th>Pathway</th><th>Genes</th></tr>
+    {% for v in rptDic %}
+  	<tr><td>{{v[0]}}</td><td style="text-align: left;"><a href='{{smp}}_map/{{v[2]}}.html' title='click to view map' target='_blank'>{{v[1]}}</a></td><td style="text-align: left;"><a name='gene{{v[0]}}'></a>{{v[4]}}</td></tr>
+    {% endfor %}
+  </table><div id="bt"><a href="#">Back Top</a></div><script type='text/javascript'>showPer(document.getElementsByTagName('table')[0]);markColor(document.getElementsByTagName('table')[0]);</script></body></html>
