@@ -1,0 +1,299 @@
+---
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: True
+    collapsed: False
+    theme: journal
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE,results='asis')
+# Package
+if(!'LCORD' %in% .packages(all.available=T)) install.packages(paste(getwd(),'/LCORD_1.0_R_x86_64-redhat-linux-gnu.tar.gz',sep=""),repos = NULL)
+library(LCORD)
+library(kableExtra)
+library(dplyr)
+```
+
+```{r BasicInfos, echo=FALSE, message=FALSE, warning=FALSE}
+# Basic Infos
+infos.DF = data.frame(c("{{contract}}",
+                        "{{project}}",
+                        "{{client}}",
+                        "{{institute}}",
+                        "{{types}}",
+                        "",
+                        "{{samples}}", # split by ","
+                        "{{groups}}",  # split by "," same length
+                        "",
+                        "{{ordmethod}}",
+                        "{{distmethod}}",
+                        "{{fit}}",
+                        "{{pthreshold}}"
+                        ))
+rownames(infos.DF) = c("Contract",
+                       "Project",
+                       "Client",
+                       "Institute",
+                       "Types",
+                       "",
+                       "Samples",
+                       "Groups",
+                       " ",
+                       "Ordination Method",
+                       "Distance Method (distInput Only)",
+                       "Fit or Not (CCA | RDA Only)",
+                       "P Threshold (Only to Filter Result)"
+                       )
+#LCCor::htmlTable(df = infos.DF,
+#                  caption = "Basic Information")
+```
+
+```{r include=FALSE}
+# Input
+infile1 = "{{infile1}}"
+infile2 = "{{infile2}}"
+samples = "{{samples}}"
+groups  = "{{groups}}"
+# method
+ordmethod  = strsplit("{{ordmethod}}",split = ",")[[1]] # Can Be a List
+fit        = "{{envfit}}"                           # 1 Distance only
+pthreshold = as.numeric({{pthreshold}})
+# output
+outDir = "{{outDir}}"
+```
+
+```{r, include=FALSE}
+# First Columns is RowName
+intable1 = read.table(infile1,sep="\t",comment.char="@",header=T,row.names = 1)
+intable2 = read.table(infile2,sep="\t",comment.char="@",header=T,row.names = 1)
+intable1 = intable1[,colSums(intable1) != 0]
+intable2 = intable2[,colSums(intable2) != 0]
+# Deal with the Inf
+is.na(intable1)<-sapply(intable1, is.infinite)
+intable1[is.na(intable1)]<-0
+is.na(intable2)<-sapply(intable2, is.infinite)
+intable2[is.na(intable2)]<-0
+```
+
+```{r echo=F,include=FALSE}
+# Ordination
+dir.create(paste(outDir,"Ordination",sep = "/"),recursive=T)
+outDir = paste(outDir,"Ordination",sep = "/")
+
+for(method in ordmethod){
+  if(method == "cca"){
+    if(infile2 == infile1){
+      print("Here is CA :: Correspondence Analysis")
+      dir.create(paste(outDir,"ca",sep = "/"),recursive=T)
+      ca = veganCCA(intable1,outDir=paste(outDir,"ca",sep = "/"),Group=groups)
+    }else{
+      dir.create(paste(outDir,"cca",sep = "/"),recursive=T)
+      if (fit == "fit"){
+        cca = veganCCAenvfit(intable1,intable2,outDir=paste(outDir,"cca",sep = "/"),Group=groups)
+        sink(paste(outDir,"cca","cca.envfitLC",sep = "/"),append=TRUE)
+        print(cca$LC)
+        sink()
+        sink(paste(outDir,"cca","cca.envfitWA",sep = "/"),append=TRUE)
+        print(cca$WA)
+        sink()
+      }else{
+        cca = veganCCA(intable1,intable2,outDir=paste(outDir,"cca",sep = "/"),Group=groups)}
+    }
+  }else if(method == "ca"){
+    dir.create(paste(outDir,"ca",sep = "/"),recursive=T)
+    ca = veganCCA(intable1,outDir=paste(outDir,"ca",sep = "/"),Group=groups)
+  }else if(method == "rda"){
+    if(infile2 == infile1){
+      print("Here is PCA :: Correspondence Analysis")
+      dir.create(paste(outDir,"pca",sep = "/"),recursive=T)
+      pca = veganRDA(intable1,outDir=paste(outDir,"pca",sep = "/"),Group=groups)
+    }else{
+      dir.create(paste(outDir,"rda",sep = "/"),recursive=T)
+      if (fit == "fit"){
+        rda = veganRDAenvfit(intable1,intable2,outDir=paste(outDir,"rda",sep = "/"),Group=groups)
+        sink(paste(outDir,"rda","rda.envfitLC",sep = "/"),append=TRUE)
+        print(rda$LC)
+        sink()
+        sink(paste(outDir,"rda","rda.envfitWA",sep = "/"),append=TRUE)
+        print(rda$WA)
+        sink()
+      }else{
+        rda = veganRDA(intable1,intable2,outDir=paste(outDir,"rda",sep = "/"),Group=groups)}
+    }
+  }else if(method == "pca"){
+    dir.create(paste(outDir,"pca",sep = "/"),recursive=T)
+    pca = veganRDA(intable1,outDir=paste(outDir,"pca",sep = "/"),Group=groups)
+  }else if(method == "pcoa"){
+    dir.create(paste(outDir,"pcoa",sep = "/"),recursive=T)
+    pcoa = veganRDA(intable1,outDir=paste(outDir,"pcoa",sep = "/"),Group=groups)
+  }else if(method == "mds"){
+    dir.create(paste(outDir,"mds",sep = "/"),recursive=T)
+    nmds = veganRDA(intable1,outDir=paste(outDir,"mds",sep = "/"),Group=groups)
+  }else if(method == "nmds"){
+    dir.create(paste(outDir,"nmds",sep = "/"),recursive=T)
+    nmds = veganRDA(intable1,outDir=paste(outDir,"nmds",sep = "/"),Group=groups)
+  }else if(method == "DCA"){
+    dir.create(paste(outDir,"dca",sep = "/"),recursive=T)
+    nmds = veganRDA(intable1,outDir=paste(outDir,"dca",sep = "/"),Group=groups)
+  }else if(method == "CAP"){
+    dir.create(paste(outDir,"cap",sep = "/"),recursive=T)
+    nmds = veganRDA(intable1,outDir=paste(outDir,"cap",sep = "/"),Group=groups)
+  }
+}
+
+```
+
+# Ordination
+
+[Ordination - wiki](https://en.wikipedia.org/wiki/Ordination_(statistics)) 
+
+**Ordination** *or* **gradient analysis***, in *[Multivariate](https://en.wikipedia.org/wiki/Multivariate_statistics) [Analysis](https://en.wikipedia.org/wiki/Multivariate_analysis)*, is a method complementary to* **data clustering***, and used mainly in exploratory data analysis (rather than in hypothesis testing). Ordination orders objects that are characterized by values on* **multiple** *variables (multivariate objects) so that similar objects are near each other and dissimilar objects are farther from each other. Such relationships between the objects, on each of several axes (one for each variable), are then characterized numerically and or graphically. Many ordination techniques exist, including principal components analysis (***PCA***), non-metric multidimensional scaling (***NMDS***), correspondence analysis (***CA***) and its derivatives (detrended CA (***DCA***), canonical CA (***CCA***)), ***BrayCurtis*** ordination, and redundancy analysis (***RDA***), among others.*
+
+*So, Ordination is one kinds of ***Multivariate Statistical***. Here is the Common Multivariate Statistical Tools:*
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+MultiV = data.frame(
+  Technique = c("PCA","CA","DCA","PCoA","NMDS","Hierarchical Clustering","K-Means Clustering","CCorA","CIA","PA","RDA","dbRDA","CCA","PRC","GLM","Mantel Test","ANOSIM","PERMANOVA","DFA","LDA","PLSDA","OPLSDA","SVM","RF"),
+  Aims = c(rep("Exploratory",7),rep("Interpretive",11),rep("Discriminatory",6)),
+  Modal = c("Linear","Unimodal","Unimodal",rep("AnyDM",4),"Linear","AnyORD","Any","Linear","AnyDM","Unimodal","Linear","AnyLF",rep("Any",3),"Linear","Linear","Linear","Linear","AnyKF","Any"),
+  AnyType = c(rep("",3),rep("Distance Metric",4),"","Ordination",rep("",2),"Distance Metric",rep("",2),"Link Function",rep("",7),"Kernel function",""),
+  Input = c(rep("RawData",3),rep("Distance Matrix",4),"RawData","Ordination","Any","RawData","Distance Matrix",rep("RawData",3),rep("Distance Matrix",3),rep("RawData",6))
+)
+LCORD::htmlTable(df = MultiV,
+                 caption = "")
+```
+
+## Multivariate Analysis
+
+[Multivariate statistics](https://en.wikipedia.org/wiki/Multivariate_statistics) *is a subdivision of statistics encompassing the simultaneous observation and analysis of more than one outcome variable. The application of multivariate statistics is multivariate analysis.*
+*Multivariate statistics concerns understanding the different ***aims*** and ***background*** of each of the different forms of multivariate analysis, and how they relate to each other. The practical application of multivariate statistics to a particular problem may involve several types of univariate and multivariate analyses in order to understand the relationships between variables and their relevance to the problem being studied.*
+
+*In addition, multivariate statistics is concerned with ***multivariate probability distributions***, in terms of both how these can be used to represent the ***distributions of observed data***.*
+
+*how they can be used as part of statistical inference, particularly where several different quantities are of interest to the same analysis. Certain types of problems involving multivariate data, for example simple ***linear regression*** and ***multiple regression***, are not usually considered to be special cases of multivariate statistics because the analysis is dealt with by considering the (univariate) conditional distribution of a single outcome variable given the other variables.*
+
+[Multivariate analysis(MVA)](https://en.wikipedia.org/wiki/Multivariate_analysis) *is based on the statistical principle of multivariate statistics, which involves observation and analysis of more than one statistical outcome variable at a time. In design and analysis, the technique is used to perform trade studies across multiple dimensions while taking into account the effects of all variables on the responses of interest.*
+
+<b>Uses for multivariate analysis include:</b>
+
+- design for capability (also known as capability-based design)
+- inverse design, where any variable can be treated as an independent variable
+- Analysis of Alternatives (AoA), the selection of concepts to fulfil a customer need
+- analysis of concepts with respect to changing scenarios
+- identification of critical design-drivers and correlations across hierarchical levels.
+
+*Multivariate analysis can be complicated by the desire to include physics-based analysis to calculate the effects of variables for a hierarchical "systemofsystems". Often, studies that wish to use multivariate analysis are stalled by the dimensionality of the problem. These concerns are often eased through the use of surrogate models, highly accurate approximations of the physicsbased code. Since surrogate models take the form of an equation, they can be evaluated very quickly. This becomes an enabler for largescale MVA studies: while a Monte Carlo simulation across the design space is difficult with physics-based codes, it becomes trivial when evaluating surrogate models, which often take the form of responsesurface equations.*
+
+### Ordination Analysis
+
+<b>What's Ordination ?</b>
+
+<b>What's Can Ordination Do ?</b>
+
+<b>How to Choices Ordination ?</b>
+
+<b>How to explain Ordination ?</b>
+
+<b>Ordination in Ecology ?</b>
+
+- PCA
+[Principal components analysis(PCA)](https://en.wikipedia.org/wiki/Principal_components_analysis) * creates a new set of orthogonal variables that contain the same information as the original set. It rotates the axes of variation to give a new set of orthogonal axes, ordered so that they summarize decreasing proportions of the variation.*
+
+*By the way, Factor analysis is similar to PCA but allows the user to extract a specified number of synthetic variables, fewer than the original set, leaving the remaining unexplained variation as error. The extracted variables are known as latent variables or factors; each one may be supposed to account for covariation in a group of observed variables. Canonical correlation analysis finds linear relationships among two sets of variables; it is the generalised (i.e. canonical) version of bivariate correlation.*
+- CA
+[Correspondence analysis(CA)](https://en.wikipedia.org/wiki/Correspondence_analysis)*, or reciprocal averaging, finds (like PCA) a set of synthetic variables that summarise the original set. The underlying model assumes chi-squared dissimilarities among records (cases).*
+
+- RDA
+*Redundancy analysis (RDA) is similar to canonical correlation analysis but allows the user to derive a specified number of synthetic variables from one set of (independent) variables that explain as much variance as possible in another (independent) set. It is a multivariate analogue of regression.*
+
+- CCA
+*Canonical (or "constrained") correspondence analysis (CCA) for summarising the joint variation in two sets of variables (like redundancy analysis); combination of correspondence analysis and multivariate regression analysis. The underlying model assumes chisquared dissimilarities among records (cases).*
+
+- PCoA
+*Multidimensional scaling comprises various algorithms to determine a set of synthetic variables that best represent the pairwise distances between records. The original method is principal coordinates analysis (PCoA; based on PCA).*
+
+- MDS and NMDS
+
+- LDA | PLSDA | OPLSDA
+*Discriminant analysis, or canonical variate analysis, attempts to establish whether a set of variables can be used to distinguish between two or more groups of cases. Linear discriminant analysis (LDA) computes a linear predictor from two sets of normally distributed data to allow for classification of new observations.*
+
+### Question Here
+
+##### What's the Difference ?
+
+<b>PCA and PCoA</b>
+
+<b>MDS and NMDS</b>
+
+<b>Distance Choices</b>
+
+## Distribution Modal
+
+### Detrended Correspondence Analysis
+```{r, echo=FALSE, message=FALSE, warning=FALSE} 
+# model TEST
+dir.create(paste(outDir,"modelTEST",sep = "/"),recursive=T,showWarnings=F)
+# dca
+dir.create(paste(outDir,"modelTEST","dca",sep = "/"),recursive=T,showWarnings=F)
+```
+### ScatterGraph
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# model TEST
+dir.create(paste(outDir,"modelTEST",sep = "/"),recursive=T,showWarnings=F)
+# Scatter Graph
+dir.create(paste(outDir,"modelTEST","ScatterGraph",sep = "/"),recursive=T,showWarnings=F)
+```
+
+## Ordination
+
+### PCA
+[Principal components analysis(PCA)](https://en.wikipedia.org/wiki/Principal_components_analysis) * is a statistical procedure that uses an orthogonal transformation to convert a set of observations of possibly correlated variables into a set of values of linearly uncorrelated variables called principal components. The number of distinct principal components is equal to the smaller of the number of original variables or the number of observations minus one. This transformation is defined in such a way that the first principal component has the largest possible variance (that is, accounts for as much of the variability in the data as possible), and each succeeding component in turn has the highest variance possible under the constraint that it is orthogonal to the preceding components. The resulting vectors are an uncorrelated orthogonal basis set. PCA is sensitive to the relative scaling of the original variables.*
+
+*PCA is mostly used as a tool in exploratory data analysis and for making predictive models. It's often used to visualize genetic distance and relatedness between populations. PCA can be done by eigenvalue decomposition of a data covariance (or correlation) matrix or singular value decomposition of a data matrix, usually after mean centering (and normalizing or using Zscores) the data matrix for each attribute. The results of a PCA are usually discussed in terms of component scores, sometimes called factor scores (the transformed variable values corresponding to a particular data point), and loadings (the weight by which each standardized original variable should be multiplied to get the component score).*
+
+*PCA is the simplest of the true eigenvector-based multivariate analyses. Often, its operation can be thought of as revealing the internal structure of the data in a way that best explains the variance in the data. If a multivariate dataset is visualised as a set of coordinates in a high-dimensional data space (1 axis per variable), PCA can supply the user with a lower-dimensional picture, a projection of this object when viewed from its most informative viewpoint. This is done by using only the first few principal components so that the dimensionality of the transformed data is reduced.*
+
+*PCA is closely related to factor analysis. Factor analysis typically incorporates more domain specific assumptions about the underlying structure and solves eigenvectors of a slightly different matrix.*
+
+<b> cov AND svd ? </b>
+
+#### PCA Result
+
+```{r, echo=FALSE, fig.height=4.5, fig.width=4, message=FALSE, warning=FALSE}
+library(vegan)
+data(varespec)
+pca <- rda(varespec)
+plot(pca)
+```
+
+### CA
+```{r, echo=FALSE, fig.height=4.5, fig.width=4, message=FALSE, warning=FALSE}
+library(vegan)
+data(varespec)
+ca <- cca(varespec)
+plot(ca)
+```
+
+### CCA
+```{r, echo=FALSE, fig.height=4.5, fig.width=4, message=FALSE, warning=FALSE}
+library(vegan)
+data(varespec)
+data(varechem)
+cca <- cca(varespec,varechem)
+plot(cca)
+```
+
+### RDA
+```{r, echo=FALSE, fig.height=4.5, fig.width=4, message=FALSE, warning=FALSE}
+library(vegan)
+data(varespec)
+data(varechem)
+rda <- rda(varespec,varechem)
+plot(rda)
+```
+
+### PCoA

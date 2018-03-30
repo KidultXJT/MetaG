@@ -1,0 +1,265 @@
+---
+title: "Differentiation Analysis Report - Fisher-Pitman Permutation Tests"
+author: "Sagene"
+date: "{{DATE}}"
+output: 
+  html_document:
+    toc: True
+    toc_depth: 1
+    toc_float: True
+    theme: journal
+---
+
+```{r warning = FALSE, include=FALSE}
+require(lance)
+require(ggplot2)
+require(reshape2)
+require(ggthemes)
+require(grid)
+require(gridExtra)
+require(stringr)
+require(coin)
+
+####### Functions #######
+
+writeTable <- function(df, ID, filename){
+  df = cbind(rownames(df), df)
+  colnames(df)[1] = ID
+  write.table(df, filename, sep = '\t', quote = F, col.names = T, row.names = F)
+}
+
+
+####### COLORS #######
+
+GCOLOR = c("#00293F","#CD3131","#A0DBDB","#305973","#56A7A7","#06C1B6","#6A0000","#B17D58","#4A2C2C","#AB1212")
+GCOLOR = rep(GCOLOR, 100)
+SCOLOR = c("#729A97","#624C9A")
+
+####### Parameters #######
+
+### For Data
+DF        = "{{IN_FILE}}"
+RN        = {{RN}}                  # Which column is used as the row names
+SKIP      = "{{CSKIP}}"                # Which columns are skipped when using the data table
+GROUP     = "{{GROUP}}"
+ID        = "{{ID}}"              # Name of the records
+VAL       = "{{VAL}}"        # Name of the measurements in the table
+
+### For Test
+SEL       = {{SEL}}
+P.ADJ1    = '{{PADJ1}}'
+P.ADJ2    = '{{PADJ2}}'
+PAIR.WISE = {{PAIRTEST}}
+
+### For Filter
+G.THREAS  = {{GFIL}}  # Filter threashold for group-wise test
+P.THREAS  = {{PFIL}}  # Filter threashold for pair-wise test
+
+### For Output
+OUT.PREFIX  = "{{OUTPFX}}"
+G.OUT.DIR   = "{{GDIR}}"
+P.OUT.DIR   = "{{PDIR}}"
+
+####### Read the data #######
+
+df = read.delim2(DF, header = T, stringsAsFactors = F)
+rownames(df) = df[[RN]]
+SKIP = as.numeric(unlist(strsplit(SKIP, ',')))
+df = df[-c(RN, SKIP)]
+group.labs = as.factor(unlist(strsplit(GROUP, ',')))
+sample.labs = colnames(df)
+if(length(unique(sample.labs)) != length(sample.labs)){
+  stop("[Lance Error] Non-unique sample labels in the data table!")
+}
+
+df = as.data.frame(apply(df, c(1,2), as.numeric))
+
+
+####### Do the test #######
+
+re.group = lc.fp.permut(df           = df, 
+                        group.labs   = group.labs, 
+                        sel          = SEL, 
+                        p.adj.intra  = P.ADJ1,
+                        p.adj.inter  = P.ADJ2,
+                        pairwise     = PAIR.WISE)
+
+
+### Output the results and filtered results of group-wise test
+group.table = cbind(re.group$Statistics, re.group$group.wise$Result)
+group.table.out = group.table[order(group.table$p.value, decreasing = F),]
+
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".Permutation.groupwise.tsv")
+writeTable(group.table.out, ID, filename)
+
+group.table.p.filter = group.table[group.table$p.value < G.THREAS,]
+group.table.p.filter = group.table.p.filter[complete.cases(group.table.p.filter),]
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".Permutation.groupwise.p.filtered.", G.THREAS, ".tsv")
+writeTable(group.table.p.filter, ID, filename)
+
+if (dim(group.table.p.filter)[1]>0){
+  df.group.p.filter = df[group.table$p.value < G.THREAS,]
+  df.group.p.filter = df.group.p.filter[complete.cases(df.group.p.filter),]
+  nrecord = dim(df.group.p.filter)[1]
+  df.group.p.filter = cbind(rownames(df.group.p.filter), df.group.p.filter)
+  colnames(df.group.p.filter)[1] = ID
+  df.group.p.filter = melt(df.group.p.filter, id.vars = ID)
+  colnames(df.group.p.filter) = c(ID, "Sample", VAL)
+  df.group.p.filter$Group = apply(df.group.p.filter, 1, 
+                                  function(x){group.labs[which(sample.labs == x[2])]})
+  
+  p = ggplot(df.group.p.filter, aes(x=as.factor(df.group.p.filter[[1]]), y=df.group.p.filter[[3]], fill=Group)) + 
+    geom_violin(aes(fill = NULL), fill = "transparent", colour = "grey") +  
+    geom_boxplot() + 
+    theme_classic() + 
+    labs(x = ID, y = VAL) +
+    theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5)) +
+    scale_fill_manual(values = GCOLOR)
+  if (nrecord > 6){
+    p = p + theme(legend.position="top")
+  }
+  
+  filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".Permutation.groupwise.p.filtered.", G.THREAS)
+  ggsave(paste0(filename, '.png'), width = max(10, nrecord), limitsize=F)
+  ggsave(paste0(filename, '.pdf'), width = max(10, nrecord), limitsize=F)
+}
+
+group.table.q.filter = group.table[group.table$p.value.adj < G.THREAS,]
+group.table.q.filter = group.table.q.filter[complete.cases(group.table.q.filter),]
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".Permutation.groupwise.q.filtered.", G.THREAS, ".tsv")
+writeTable(group.table.q.filter, ID, filename)
+
+if (dim(group.table.q.filter)[1]>0){
+  df.group.q.filter = df[group.table$p.value.adj < G.THREAS,]
+  df.group.q.filter = df.group.q.filter[complete.cases(df.group.q.filter),]
+  nrecord = dim(df.group.q.filter)[1]
+  df.group.q.filter = cbind(rownames(df.group.q.filter), df.group.q.filter)
+  colnames(df.group.q.filter)[1] = ID
+  df.group.q.filter = melt(df.group.q.filter, id.vars = ID)
+  colnames(df.group.q.filter) = c(ID, "Sample", VAL)
+  df.group.q.filter$Group = apply(df.group.q.filter, 1, 
+                                  function(x){group.labs[which(sample.labs == x[2])]})
+  
+  p = ggplot(df.group.q.filter, aes(x=as.factor(df.group.q.filter[[1]]), y=df.group.q.filter[[3]], fill=Group)) + 
+    geom_violin(aes(fill = NULL), fill = "transparent", colour = "grey") +  
+    geom_boxplot() + 
+    theme_classic() + 
+    labs(x = ID, y = VAL) +
+    theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5)) +
+    scale_fill_manual(values = GCOLOR)
+  if (nrecord > 6){
+    p = p + theme(legend.position="top")
+  }
+  
+  filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".Permutation.groupwise.q.filtered.", G.THREAS)
+  ggsave(paste0(filename, '.png'), width = max(10, nrecord), limitsize=F)
+  ggsave(paste0(filename, '.pdf'), width = max(10, nrecord), limitsize=F)
+}
+
+
+### Output the results and filtered results of pairwise permutation tests if done
+if(PAIR.WISE){
+  
+  re.pair = re.group$pair.wise
+  each.list = re.pair$Each
+  
+  writeEach <- function(x, P.OUT.DIR, OUT.PREFIX, P.THREAS, ID, VAL){
+    group1 = x[[1]]
+    group2 = x[[2]]
+    results = x[[3]]
+    
+    results = results[order(results[5], decreasing = F), ]
+    filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".Permutation.pairwise.", group1, '-', group2, ".tsv")
+    writeTable(results, ID, filename)
+    
+    results.p.filter = results[results[5] < P.THREAS,]
+    results.p.filter = results.p.filter[complete.cases(results.p.filter),]
+    filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".Permutation.pairwise.", group1, '-', group2, ".p.filter.",P.THREAS ,".tsv")
+    writeTable(results.p.filter, ID, filename)
+    
+    results.q.filter = results[results[6] < P.THREAS,]
+    results.q.filter = results.q.filter[complete.cases(results.q.filter),]
+    filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".Permutation.pairwise.", group1, '-', group2, ".q.filter.",P.THREAS ,".tsv")
+    writeTable(results.q.filter, ID, filename)
+
+    ## select groups and corresponding data from the original table.
+    group.sub = as.factor(as.character(group.labs[group.labs == group1 | group.labs == group2]))
+    df.sub = df[group.labs == group1 | group.labs == group2]
+    df.sub = cbind(rownames(df.sub), df.sub)
+    colnames(df.sub)[1] = ID
+
+    ## Draw figures for each of the unfiltered and filtered tables
+    for (i in c("results", "results.p.filter", "results.q.filter")){
+      result.plot = get(i)
+      result.plot = result.plot[complete.cases(result.plot),]
+      if (nrow(result.plot) == 0) next
+      result.plot = cbind(rownames(result.plot), result.plot)
+      colnames(result.plot)[1] = ID
+      result.plot[1] = as.factor(result.plot[[1]])
+      result.plot = result.plot[order(result.plot[[1]]),]
+      
+      df.filter = merge(result.plot, df.sub, all.x = T, all.y = F, by = ID)
+      df.filter = df.filter[order(df.filter[[1]]),]
+      df.p = rep(df.filter[[6]], each = 2)
+      df.filter = df.filter[-c(2:7)]
+      
+      df.filter.mean = lc.groupRowMean(df.filter[-1], group.sub)
+      df.filter.mean = cbind(df.filter[[1]], df.filter.mean)
+      colnames(df.filter.mean)[1] = ID
+      df.filter.mean = melt(df.filter.mean, measure.vars = c(2,3), variable.name = "Group", value.name = "Mean")
+      
+      df.filter.se = lc.groupRowSE(df.filter[-1], group.sub)
+      df.filter.se = cbind(df.filter[[1]], df.filter.se)
+      colnames(df.filter.se)[1] = ID
+      df.filter.se = melt(df.filter.se, measure.vars = c(2,3), variable.name = "Group", value.name = "SE")
+      
+      df.filter.stat = merge(df.filter.mean, df.filter.se)
+      
+      p1 = ggplot(df.filter.stat, aes(x = reorder(df.filter.stat[[1]], -df.p), y = Mean, fill = Group)) +
+           geom_bar(position=position_dodge(), stat="identity") +
+           geom_errorbar(aes(ymax = Mean + SE, ymin = Mean),
+                         size = 0.3,
+                         width = 0.2,
+                         colour = "grey25",
+                         position = position_dodge(0.9)) +
+           labs(x = ID, y = VAL) + 
+           coord_flip() + 
+           scale_y_continuous(expand = c(0,0)) +
+           theme_classic() +
+           theme(legend.position = "left") +
+           scale_fill_manual(values = SCOLOR)
+      
+      p.label = paste0("p = ", sprintf("%.3f", round(result.plot[[6]], 3)), 
+                     "    p.adj = ", sprintf("%.3f", round(result.plot[[7]], 3)))
+      
+      p3 = ggplot(result.plot, aes(x = reorder(result.plot[[1]], -result.plot[[6]]))) + 
+           geom_text(aes(label = p.label, y=0.5)) + 
+           labs(x = NULL, y = "P Values") +
+           coord_flip() +
+           theme_classic() +
+           theme(axis.line.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank(),
+                 axis.line.x = element_line(colour = 'white'), axis.ticks = element_line(colour = 'white'),
+                 axis.text.x = element_text(colour = 'white')) +
+           theme(panel.background = element_rect(colour = "grey95", fill = "grey95")) +
+           ylim(0, 1) + 
+           labs(element_blank())
+      
+      p = grid.arrange(p1, p3, ncol=2, nrow=1, widths = c(4,1))
+      
+      filename = str_replace(i, "results", "")
+      filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".Permutation.pairwise.", group1, '-', group2, filename)
+      
+      png(paste0(filename, ".png"), width = 16, height = max(0.4 * nrow(result.plot), 5), units = "in", res = 300)
+      grid.draw(p)
+      dev.off()
+      pdf(paste0(filename, ".pdf"), width = 16, height = max(0.4 * nrow(result.plot), 5))
+      grid.draw(p)
+      dev.off()
+    }
+  
+  }
+  
+  lapply(each.list, writeEach, P.OUT.DIR, OUT.PREFIX, P.THREAS, ID, VAL)
+  
+}
+```

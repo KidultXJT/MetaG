@@ -1,0 +1,12 @@
+Package: LCORD
+Type: Package
+Title: Kitult
+Version: 1.0
+Date: 2018-01-15
+Author: Kitult
+Maintainer: Kitult <junting.xie@sagene.com.cn>
+Description: Ordination Analysis AND Visualization.
+Company: Sagene
+License: GPL-3
+Depends: R (>= 2.0.0)
+Imports: ggplot2,pheatmap,RColorBrewer,ggthemr,vegan,scales,riverplot

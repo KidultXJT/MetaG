@@ -1,0 +1,457 @@
+---
+title: "组间差异分析报告 - 参数检验"
+author: "Sagene"
+date: "{{DATE}}"
+output: 
+  html_document:
+    toc: True
+    toc_depth: 3
+    toc_float: True
+    theme: cerulean
+---
+
+
+```{r warning = FALSE, include=FALSE, echo = F}
+
+require(lance)
+require(ggplot2)
+require(reshape2)
+require(ggthemes)
+require(ggthemr)
+require(grid)
+require(gridExtra)
+require(stringr)
+require(pheatmap)
+require(knitr)
+require(kableExtra)
+
+####### Functions #######
+
+writeTable <- function(df, ID, filename){
+  df = cbind(rownames(df), df)
+  colnames(df)[1] = ID
+  write.table(df, filename, sep = '\t', quote = F, col.names = T, row.names = F)
+}
+
+
+####### COLORS #######
+
+GCOLOR = c("#00293F","#CD3131","#A0DBDB","#305973","#56A7A7","#06C1B6","#6A0000","#B17D58","#4A2C2C","#AB1212")
+GCOLOR = rep(GCOLOR, 100)
+SCOLOR = c("#729A97","#624C9A")
+
+####### Parameters #######
+
+### For Data
+DF        = "{{IN_FILE}}"
+RN        = {{RN}}               # Which column is used as the row names
+CSKIP     = "{{CSKIP}}"                 # Which columns are skipped when using the data table
+GROUP     = "{{GROUP}}"
+ID        = "{{ID}}"
+VAL       = "{{VAL}}"
+
+### For Test
+SEL       = {{SEL}}
+P.ADJ1    = '{{PADJ1}}'
+P.ADJ2    = '{{PADJ2}}'
+EV        = {{EV}}
+CONF      = {{CONF}}
+PAIRED    = {{PAIR}}
+
+### For Filter
+G.THREAS  = {{GFIL}}     # Filter threashold for group-wise test
+P.THREAS  = {{PFIL}}     # Filter threashold for pair-wise test
+
+### For Output
+OUT.PREFIX  = "{{OUTPFX}}"
+G.OUT.DIR   = "{{GDIR}}"
+P.OUT.DIR   = "{{PDIR}}"
+OUT.QQ      = {{OUTQQ}}
+QQ.DIR      = "{{QQDIR}}"
+
+
+####### Read the data #######
+
+df = read.delim2(DF, header = T, stringsAsFactors = F)
+rownames(df) = df[[RN]]
+SKIP = as.numeric(unlist(strsplit(CSKIP, ',')))
+df = df[-c(RN, SKIP)]
+group.labs = as.factor(unlist(strsplit(GROUP, ',')))
+sample.labs = colnames(df)
+if(length(unique(sample.labs)) != length(sample.labs)){
+  stop("[Lance Error] Non-unique sample labels in the data table!")
+}
+
+df = as.data.frame(apply(df, c(1,2), as.numeric))
+
+
+####### Do the test #######
+
+re.group = lc.oneway.anova(df           = df, 
+                           group.labs   = group.labs, 
+                           sel          = SEL, 
+                           p.adj        = P.ADJ1, 
+                           equal.var    = EV)
+
+re.pair = lc.ttest(df              = df, 
+                   group.labs      = group.labs, 
+                   sel             = SEL, 
+                   is.paired       = PAIRED, 
+                   equal.var       = EV, 
+                   sided           = 'two.sided', 
+                   conf.level      = CONF, 
+                   var.conf.level  = 0.95, 
+                   p.adj.intra     = P.ADJ1, 
+                   p.adj.inter     = P.ADJ2)
+
+### Output the results and filtered results of ANOVA
+group.table = cbind(re.group$Statistics, re.group$Result)
+group.table.out = group.table[order(group.table$p.value.adjusted, decreasing = F),]
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".ANOVA.tsv")
+writeTable(group.table.out, ID, filename)
+
+group.table.p.filter = group.table[group.table$p.value < G.THREAS,]
+group.table.p.filter = group.table.p.filter[complete.cases(group.table.p.filter),]
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".ANOVA.p.filtered.", G.THREAS, ".tsv")
+writeTable(group.table.p.filter, ID, filename)
+
+if (dim(group.table.p.filter)[1]>0){
+  df.group.p.filter = df[group.table$p.value < G.THREAS,]
+  df.group.p.filter = df.group.p.filter[complete.cases(df.group.p.filter),]
+  nrecord = dim(df.group.p.filter)[1]
+  df.group.p.filter = cbind(rownames(df.group.p.filter), df.group.p.filter)
+  colnames(df.group.p.filter)[1] = ID
+  df.group.p.filter = melt(df.group.p.filter, id.vars = ID)
+  colnames(df.group.p.filter) = c(ID, "Sample", VAL)
+  df.group.p.filter$Group = apply(df.group.p.filter, 1, 
+                                  function(x){group.labs[which(sample.labs == x[2])]})
+  
+  p = ggplot(df.group.p.filter, aes(x=as.factor(df.group.p.filter[[1]]), y=df.group.p.filter[[3]], fill=Group)) + 
+      geom_violin(aes(fill = NULL), fill = "transparent", colour = "grey") +  
+      geom_boxplot() + 
+      theme_classic() + 
+      labs(x = ID, y = VAL) +
+      theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5)) +
+      scale_fill_manual(values = GCOLOR)
+  if (nrecord > 6){
+    p = p + theme(legend.position="top")
+  }
+  
+  filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".ANOVA.p.filtered.", G.THREAS)
+  ggsave(paste0(filename, '.png'), width = max(10, nrecord), limitsize = F)
+  ggsave(paste0(filename, '.pdf'), width = max(10, nrecord), limitsize = F)
+}
+
+group.table.q.filter = group.table[group.table$p.value.adjusted < G.THREAS,]
+group.table.q.filter = group.table.q.filter[complete.cases(group.table.q.filter),]
+filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".ANOVA.q.filtered.", G.THREAS, ".tsv")
+writeTable(group.table.q.filter, ID, filename)
+
+if (dim(group.table.q.filter)[1]>0){
+  df.group.q.filter = df[group.table$p.value.adjusted < G.THREAS,]
+  df.group.q.filter = df.group.q.filter[complete.cases(df.group.q.filter),]
+  nrecord = dim(df.group.q.filter)[1]
+  df.group.q.filter = cbind(rownames(df.group.q.filter), df.group.q.filter)
+  colnames(df.group.q.filter)[1] = ID
+  df.group.q.filter = melt(df.group.q.filter, id.vars = ID)
+  colnames(df.group.q.filter) = c(ID, "Sample", VAL)
+  df.group.q.filter$Group = apply(df.group.q.filter, 1, 
+                                  function(x){group.labs[which(sample.labs == x[2])]})
+  
+  p = ggplot(df.group.q.filter, aes(x=as.factor(df.group.q.filter[[1]]), y=df.group.q.filter[[3]], fill=Group)) + 
+      geom_violin(aes(fill = NULL), fill = "transparent", colour = "grey") +  
+      geom_boxplot() + 
+      theme_classic() + 
+      labs(x = ID, y = VAL) +
+      theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5)) +
+      scale_fill_manual(values = GCOLOR)
+  if (nrecord > 6){
+    p = p + theme(legend.position="top")
+  }
+  
+  filename = paste0(G.OUT.DIR, '/', OUT.PREFIX, ".ANOVA.q.filtered.", G.THREAS)
+  ggsave(paste0(filename, '.png'), width = max(10, nrecord), limitsize = F)
+  ggsave(paste0(filename, '.pdf'), width = max(10, nrecord), limitsize = F)
+}
+
+### Output the results and filtered results of pairwise ttest
+pair.table = cbind(re.pair$Statistics, re.pair$Result)
+filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.all.tsv")
+writeTable(pair.table, ID, filename)
+
+pair.p.filtered = which(rowSums(re.pair$p.unadjusted < 0.05) > 0)
+pair.table.p.filtered = pair.table[pair.p.filtered, ]
+filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.all.p.filtered.", P.THREAS, ".tsv")
+writeTable(pair.table.p.filtered, ID, filename)
+
+pair.q1.filtered = which(rowSums(re.pair$p.adjusted.intra < 0.05) > 0)
+pair.table.q1.filtered = pair.table[pair.q1.filtered, ]
+filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.all.q1.filtered.", P.THREAS, ".tsv")
+writeTable(pair.table.q1.filtered, ID, filename)
+
+pair.q2.filtered = which(rowSums(re.pair$p.adjusted.inter < 0.05) > 0)
+pair.table.q2.filtered = pair.table[pair.q2.filtered, ]
+filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.all.q2.filtered.", P.THREAS, ".tsv")
+writeTable(pair.table.q2.filtered, ID, filename)
+
+
+### Output the results and filtered results of pairwise ttest
+
+each.list = re.pair$Each
+
+writeEach <- function(x, P.OUT.DIR, OUT.PREFIX, P.THREAS, ID, VAL){
+  group1 = x[[1]]
+  group2 = x[[2]]
+  results = x[[3]]
+  
+  results = results[order(results[ncol(results)-1], decreasing = F), ]
+  filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.", group1, '-', group2, ".tsv")
+  writeTable(results, ID, filename)
+  
+  results.p.filter = results[results[dim(results)[2]-1] < P.THREAS,]
+  results.p.filter = results.p.filter[complete.cases(results.p.filter),]
+  filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.", group1, '-', group2, ".p.filter.",P.THREAS ,".tsv")
+  writeTable(results.p.filter, ID, filename)
+  
+  results.q.filter = results[results[dim(results)[2]] < P.THREAS,]
+  results.q.filter = results.q.filter[complete.cases(results.q.filter),]
+  filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.", group1, '-', group2, ".q.filter.",P.THREAS ,".tsv")
+  writeTable(results.q.filter, ID, filename)
+  
+  ## select groups and corresponding data from the original table.
+  group.sub = as.factor(as.character(group.labs[group.labs == group1 | group.labs == group2]))
+  df.sub = df[group.labs == group1 | group.labs == group2]
+  df.sub = cbind(rownames(df.sub), df.sub)
+  colnames(df.sub)[1] = ID
+  
+  ## Draw figures for each of the unfiltered and filtered tables
+  for (i in c("results", "results.p.filter", "results.q.filter", "display")){    ### "display" is used for further html report
+    if (i == "display"){
+        result.plot = get("results")
+        if(nrow(result.plot)>15) result.plot = result.plot[1:15,]
+      } else {
+        result.plot = get(i)
+      }
+    result.plot = result.plot[complete.cases(result.plot),]
+    if (nrow(result.plot) == 0) next
+    result.plot = cbind(rownames(result.plot), result.plot)
+    colnames(result.plot)[1] = ID
+    result.plot[1] = as.factor(result.plot[[1]])
+    result.plot = result.plot[order(result.plot[[1]]),]
+    
+    df.filter = merge(result.plot, df.sub, all.x = T, all.y = F, by = ID)
+    df.filter = df.filter[order(df.filter[[1]]),]
+    df.p = rep(df.filter[[8]], each = 2) # used to sort the order of the bars in the plots
+    df.filter = df.filter[-c(2:9)]
+    
+    
+    df.filter.mean = lc.groupRowMean(df.filter[-1], group.sub)
+    df.filter.mean = cbind(df.filter[[1]], df.filter.mean)
+    colnames(df.filter.mean)[1] = ID
+    df.filter.mean = melt(df.filter.mean, measure.vars = c(2,3), variable.name = "Group", value.name = "Mean")
+    
+    df.filter.se = lc.groupRowSE(df.filter[-1], group.sub)
+    df.filter.se = cbind(df.filter[[1]], df.filter.se)
+    colnames(df.filter.se)[1] = ID
+    df.filter.se = melt(df.filter.se, measure.vars = c(2,3), variable.name = "Group", value.name = "SE")
+    
+    df.filter.stat = merge(df.filter.mean, df.filter.se)
+    
+    p1 = ggplot(df.filter.stat, aes(x = reorder(df.filter.stat[[1]], -df.p), y = Mean, fill = Group)) +
+         geom_bar(position=position_dodge(), stat="identity") +
+         geom_errorbar(aes(ymax = Mean + SE, ymin = Mean),
+                       size = 0.3,
+                       width = 0.2,
+                       colour = "grey25",
+                       position = position_dodge(0.9)) +
+         labs(x = ID, y = VAL) + 
+         coord_flip() + 
+         scale_y_continuous(expand = c(0,0)) +
+         theme_classic() +
+         theme(legend.position = "left") +
+         scale_fill_manual(values = SCOLOR)
+    
+    p2 = ggplot(result.plot, aes(x = reorder(result.plot[[1]], -result.plot[[8]]))) + 
+         geom_errorbar(aes(ymax = result.plot[[5]], ymin = result.plot[[6]]),
+                       size = 0.3,
+                       width = 0.1,
+                       colour = "grey25",
+                       position = position_dodge(0.9)) + 
+         geom_point(aes(y = result.plot[[4]]))  +
+         geom_abline(intercept = 0, slope = 0, size=0.3, colour='grey25', lty = 2)
+    
+    
+    ymin = min(result.plot[[5]])
+    ymax = max(result.plot[[6]])
+    ylim = max(abs(ymin), abs(ymax))
+    
+    p2 = p2 + ylim(-ylim, ylim) +
+         labs(x = NULL, y = paste(VAL, " Difference")) +
+         coord_flip() +
+         theme_classic() +
+         theme(axis.line.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank()) +
+         ylab(element_blank())
+    
+    p.label = paste0("p = ", sprintf("%.3f", round(result.plot[[8]], 3)), 
+                   "    p.adj = ", sprintf("%.3f", round(result.plot[[9]], 3)))
+    
+    p3 = ggplot(result.plot, aes(x = reorder(result.plot[[1]], -result.plot[[8]]))) + 
+         geom_text(aes(label = p.label, y=0.5)) + 
+         labs(x = NULL, y = "P Values") +
+         coord_flip() +
+         theme_classic() +
+         theme(axis.line.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank(),
+               axis.line.x = element_line(colour = 'white'), axis.ticks = element_line(colour = 'white'),
+               axis.text.x = element_text(colour = 'white')) +
+         theme(panel.background = element_rect(colour = "grey95", fill = "grey95")) +
+         ylim(0, 1) + 
+         labs(element_blank())
+    
+    p = grid.arrange(p1, p3, p2, ncol=3, nrow=1, widths = c(3,1,3))
+    
+    if (i != "display"){
+      filename = str_replace(i, "results", "")
+      filename = paste0(P.OUT.DIR, '/', OUT.PREFIX, ".pairwise.ttest.", group1, '-', group2, filename)
+      
+      png(paste0(filename, ".png"), width = 16, height = max(0.4 * nrow(result.plot), 5), units = "in", res = 300)
+      grid.draw(p)
+      dev.off()
+      pdf(paste0(filename, ".pdf"), width = 16, height = max(0.4 * nrow(result.plot), 5))
+      grid.draw(p)
+      dev.off()
+    }
+    if (i == "display") t.plot = p
+  }
+  
+  return(t.plot)
+}
+
+t.plot = lapply(each.list, writeEach, P.OUT.DIR, OUT.PREFIX, P.THREAS, ID, VAL)
+```
+
+组间差异分析是对变量在不同组之间平均值的差异显著性进行检验的统计学方法，可以用于考察分组变量对于所研究变量取值的影响程度，并进而分析分组变量与所研究变量之间潜在关联性。参数检验法是利用数据近似正态分布，或其均值近似正态分布的假设，采用一维方差分析（One-way analysis of variance, one-way ANOVA）和组间t检验进行数据比较的方法。方差分析又称变异数分析、F检验，由R. A. Fisher发明，可以用于多个样本均数差别的显著性检验。t检验由 W. S. Gosset发明，其利用t分布来推论两个样本之间差异发生的概率，从而比较它们均值之间差异的显著性。参数检验的准确性和效力很大程度上依赖于正态分布假设是否成立。对于严重偏离正态分布且样本容量较小的数据集，建议使用非参数检验或者Fisher-Pitman置换检验进行差异分析。
+
+### 数据正态性分析
+正态性假设成立是参数检验的重要前提。组间差异比较的对象是变量的均值，因此正态性假设即要求检验的变量的均值在各个组中的取值是服从正态分布的。当数据本身是服从或近似服从正态分布时，其均值服从或近似服从正态分布。而对于大样本数据，只要各个样本是独立服从于某一分布，即可根据中心极限定理认为其均值是近似服从正态分布的。因此在考量参数检验是否适用时，需要综合数据本身的分布情况和样本量大小进行判断。本报告提供qq图作为检验输入的数据集本身分布情况的工具。更为详细的数据正态性分析请使用LCNT工具。
+
+下图展示了输入数据集中第一个变量在第两个组中分布的qq图。qq图的横轴为数据点在样本中的分位数，纵轴为数据点的理论分位数。红色直线为当该变量服从正态分布时数据点的拟合直线。数据点越靠近直线，就表明数据点偏离正态分布的程度越低。
+
+```{r warning = FALSE, echo = F, fig.height = 5, fig.width = 10.8, fig.align = 'center'}
+
+v1 = unlist(df[1, group.labs == levels(group.labs)[1]])
+v2 = unlist(df[1, group.labs == levels(group.labs)[2]])
+p1 = lc.qq(v1, name = paste0(rownames(df)[1],' in Group ',levels(group.labs)[1]), save.plot = F)
+p2 = lc.qq(v1, name = paste0(rownames(df)[1],' in Group ',levels(group.labs)[2]), save.plot = F)
+
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(p2, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+
+```
+
+```{r warning = FALSE, include = F}
+
+if(OUT.QQ){
+  drawqq <- function(row, group.labs, QQ.DIR, OUT.PREFIX){
+    lab = row[[1]]
+    row = row[-1]
+    for (group in levels(group.labs)){
+      row.sub = row[group.labs == group]
+      row.sub = as.numeric(row.sub)
+      lc.qq(row.sub, name = paste0(lab, ' in Group ', group), plot.prefix = paste0(QQ.DIR, '/', OUT.PREFIX, '.', lab, '-', group), save.plot = T)
+    }
+  }
+  df.qq = cbind(rownames(df), df)
+  apply(df.qq, 1, drawqq, group.labs, QQ.DIR, OUT.PREFIX)
+}
+
+
+```
+
+### 方差分析
+一维方差分析对变量在多个组间的均值差异显著性进行分析。在方差分析模型中，变量取值的差异来自于两个部分：其一是由于分组变量的取值不同而导致的差异，也即分组变量对所研究变量的影响，又称组间差异（Sum of Squares Between Groups, SSB），其计算方法为：
+$$SSB = \sum_{i=1}^{n}(\hat{y_i}-\bar{y_i})^2$$
+其二来自于同组不同个体之间的个体差异、实验误差等，又被称为组内误差(Sum of Squares Within Groups, SSW)。其计算方法为：
+$$SSW = \sum_{i=1}^{n}(y_i-\hat{y_i})^2$$
+上述两个差异的比值服从F分布，其自由度为n-k和k-1，其中n为总的样本点个数，k为分组个数：
+$$F = \frac{SSB/(k-1)}{SSW/(n-k)}  \sim  F(k-1, n-k)$$
+因此根据F分布可以计算变量均值在不同组间的差异显著性。该检验的原假设为所有组中，变量的均值是相同的；备则假设为，在所有组中，至少有一组的变量均值与其他组的不同。
+
+下表展示了ANOVA结果的一部分。表中包括了变量在各组中的均值和标准误。p.value为ANOVA分析得到的差异显著性。当p值低于某一阈值时（通常为0.05，但应根据实际情况决定选择合适的阈值），可以认为有足够的证据支持备则假设成立。p.value.adjusted为多重比较矫正后的p值。最后一列statistics为每个变量进行ANOVA分析后得到的F统计量。
+
+``` {r warning = FALSE, echo = F}
+
+df.display = group.table.out[complete.cases(group.table.out), ]
+ngroup = length(levels(group.labs))
+if(ngroup<=3){
+  df.display = df.display[1:6,]
+}else{
+  ncol = ncol(group.table.out)
+  df.display = df.display[1:6, c(1:6, (ncol-3):ncol)]
+}
+k = kable(df.display, format = 'html', digits = 3, align = 'c')
+kable_styling(k, font_size = 12)
+
+```
+
+在结果文件夹中包括了所有变量ANOVA分析的结果表格，以及根据p值和矫正后的p值进行筛选后的结果。如果表格为空则表示没有变量的结果符合筛选条件。下图展示了原数据集中部分变量在各组中分布的箱线图。如果根据p值或矫正后的p值筛选得到的表格不为空，则结果文件夹中还会包括对应筛选得到的显著差异的变量在各组中分布情况的箱线图。
+
+```{r warning = FALSE, echo = F, fig.width = 10.8, fig.align = 'center'}
+
+
+if(nrow(df) * ngroup > 24){
+  nrecord.totake = ceiling(24/ngroup)
+  df.boxplot = df[1:nrecord.totake,]
+} else {
+  df.boxplot = df
+}
+
+df.boxplot = cbind(rownames(df.boxplot), df.boxplot)
+colnames(df.boxplot)[1] = ID
+df.boxplot = melt(df.boxplot, id.vars = ID)
+colnames(df.boxplot) = c(ID, "Sample", VAL)
+df.boxplot$Group = apply(df.boxplot, 1, function(x){group.labs[which(sample.labs == x[2])]})
+  
+ggplot(df.boxplot, aes(x=as.factor(df.boxplot[[1]]), y=df.boxplot[[3]], fill=Group)) + 
+      geom_violin(aes(fill = NULL), fill = "transparent", colour = "grey") +  
+      geom_boxplot() + 
+      theme_classic() + 
+      labs(x = ID, y = VAL) +
+      theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5)) +
+      scale_fill_manual(values = GCOLOR)
+
+
+```
+
+上图展示的结果图，横轴为变量，纵轴为变量的取值。图中灰色线条为该变量在所有组中的取值分布情况，箱线图则表示变量在各自分组中的取值分布情况。
+
+### 组间差异分析
+ANOVA分析仅能对变量在所有组中的均值是否全等进行分析。变量在哪两个组间具有显著差异则需要进一步进行组间差异分析。均值服从或近似服从正态分布的数据集，根据两个样本的均值、方差可以计算t统计量，该统计量服从t分布。因此可以根据t分布的分位数，判断变量均值在两组间的差异是否具有显著性:
+$$t = \frac{\bar{x}_1-\bar{x}_2}{\sqrt{\frac{\sigma^2_1}{n_1}+\frac{\sigma^2_2}{n_2}}} \sim t(d_f)$$
+下表展示了组间t检验的部分结果。表中的第一、第二列为变量在两个组中的均值，第三列为均值的差值，第四、第五列为均值差异的置信区间。第六列为当前组间检验的t统计量。第七列为t检验的p值。当p值低于某一阈值时（通常为0.05，但应根据实际情况决定选择合适的阈值），可以认为有足够的证据支持备则假设成立。第八列为多重比较矫正后的p值。
+
+```{r warning = FALSE, echo = F}
+
+df.display.t = re.pair$Each[[1]][[3]][1:6,]
+k = kable(df.display.t, format = 'html', digits = 3, align = 'c')
+kable_styling(k, font_size = 12)
+
+```
+
+在结果文件夹中文件名包含“pairwise.ttest.all”的文件中包括了所有组件差异的结果，同时还包括了对多重组间比较再次进行矫正后的p值（列名为p.adjust.inter，仅经过多重变量比较矫正的p值列名为p.adjust.intra）。
+
+下图同样展示了t检验的部分结果。图中左侧为变量在两个组中均值及标准误的条形图；中间为变量均值在两组间差异的显著性，包括p值和矫正后的p值；右侧展示了组间差异及其置信区间。
+
+```{r warning = FALSE, echo = F, fig.width = 15, fig.align = 'center'}
+
+grid.draw(t.plot[[1]])
+
+```
+
+在结果文件夹中包括了所有变量的组间比较统计图，以及分别根据p值和矫正后的p值进行筛选后的统计图。
+
+### 参考文献
+[1] Scheffé, Henry (1959). The Analysis of Variance. New York: Wiley.<br/>
+[2] Belle, Gerald van (2008). Statistical rules of thumb (2nd ed.). Hoboken, N.J: Wiley.<br/>
+[3] Fay, Michael P.; Proschan, Michael A. (2010). "Wilcoxon–Mann–Whitney or t-test? On assumptions for hypothesis tests and multiple interpretations of decision rules". Statistics Surveys. 4: 1–39.<br/>

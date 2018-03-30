@@ -1,0 +1,1 @@
+python ../ezDiff.py -d example.tsv -t 1 -g A,A,A,A,B,B,B,B,C,C,C,C --rn 1 --padj1 holm --padj2 BY --ev auto --conf 0.95 --gfilter 0.1 --pfilter 0.05 --gdir ./TEST-g --pdir ./TEST-p --ptest -p parametric --keep_rmd --html --qq --qdir ./TEST-qq

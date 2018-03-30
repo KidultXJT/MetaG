@@ -1,0 +1,313 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: True
+    collapsed: False
+    theme: journal
+---
+
+
+```{r warning = FALSE, include = FALSE}
+
+require(tseries)
+require(nortest)
+require(ggplot2)
+require(fBasics)
+require(grid)
+require(knitr)
+require(kableExtra)
+
+####### Parameters #######
+
+OUT.PLOT               = {{OUT_PLOT}}                     # [none|qq|pp|both]
+GROUP.LIST             = {{GROUP_LIST}}                   # group names separated by comma
+PREFIX                 = {{PREFIX}}                       # prefix for all the output file
+OUT.BY.TEST            = {{OUT_BY_TEST}}                  # generate and save a table for each test
+OUT.BY.VAR             = {{OUT_BY_VAR}}                   # generate and save a tabel for each variable
+IN.FILE                = {{IN_FILE}}
+
+####### Functions #######
+
+OUT.QQ <- function(row, groups, prefix){
+  feature = row[1]
+  row = row[-1]
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    filename = paste0(prefix, '-', feature, '-', group, '-QQ.png')
+    subtitle = paste(group, '-', feature)
+    ggplot() +
+      geom_qq(aes(sample = row.sub), 
+              color = 'black', 
+              size = 2) +
+      geom_abline(intercept = mean(row.sub), 
+                  slope = sd(row.sub), 
+                  color = 'red', 
+                  size = 1, 
+                  alpha = 0.8) +
+      ggtitle(label = 'Q-Q Plot', subtitle = subtitle) +
+      xlab(label = 'Sample Quantile') +
+      ylab(label = 'Theoretical Quantile') +
+      theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) + 
+      theme(axis.title = element_text(size = 14)) +
+      theme(axis.text = element_text(size = 12)) +
+      ggsave(filename = filename)
+  }
+}
+
+OUT.PP <- function(row, groups, prefix){
+  feature = row[1]
+  row = row[-1]
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    n = length(row.sub)
+    p = (1 : n) / n - 0.5 / n
+    filename = paste0(prefix, '-', feature, '-', group, '-PP.png')
+    subtitle = paste(group, '-', feature)
+    ggplot() +
+      geom_point(aes(y = p, 
+                     x = sort(pnorm(row.sub, mean(row.sub), sd(row.sub)))), 
+                     color = 'black', 
+                     size = 2) +
+      geom_abline(slope = 1, 
+                  color = 'red', 
+                  size = 1, 
+                  alpha = 0.8) +
+      xlim(0,1) +
+      ylim(0,1) +
+      ggtitle(label = 'P-P Plot', subtitle = subtitle) +
+      xlab(label = 'Sample Percentile') +
+      ylab(label = 'Theoretical Percentile') +
+      theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) + 
+      theme(axis.title = element_text(size = 14)) +
+      theme(axis.text = element_text(size = 12)) +
+      ggsave(filename = filename)
+  }
+}
+
+NORM.TEST <- function(row, groups){
+  feature = row[1]
+  row = row[-1]
+  res = matrix(numeric(0), ncol = 9)
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    skew_res = round(SKEW(row.sub), 4)
+    kurt_res = round(KURT(row.sub), 4)
+    sp_res = round(shapiro.test(row.sub)$p.value, 4)
+    ks_res = ifelse(length(row.sub) <= 4, NA, round(lillieTest(row.sub)@test$p.value, 4))
+    sf_res = ifelse(length(row.sub) <= 5 | length(row.sub) > 5000,
+                    NA, round(sf.test(row.sub)$p.value, 4))
+    ad_res = ifelse(length(row.sub) <= 7, NA, round(ad.test(row.sub)$p.value, 4))
+    cv_res = ifelse(length(row.sub) <= 7, NA, round(cvm.test(row.sub)$p.value, 4))
+    pcs_res = round(pearson.test(row.sub)$p.value, 4)
+    jb_res = round(jarqueberaTest(row.sub)@test$p.value, 4)
+    res.sub = c(skew_res, kurt_res, sp_res, ks_res, sf_res, ad_res, cv_res, pcs_res, jb_res)
+    res = rbind(res, res.sub)
+  }
+  colnames(res) = c('Skewness', 'Kurtosis', 
+                 'Shapiro-Wilk Test p.value', 
+                 'Kolmogorov-Smirnov Test p.value',
+                 'Shapiro-Francia Test p.value',
+                 'Anderson-Darling Test p.value',
+                 'Cramer-von Mises Test p.value',
+                 'Pearson Chi-square Test p.value',
+                 'Jarque Bera Test p.value')
+  rownames(res) = levels(groups)
+  return(res)
+}
+
+
+MOMENT <- function(x, n){
+  x = x-mean(x)
+  sum(x^n)/(length(x))
+}
+
+SKEW <- function(x){
+  n = length(x)
+  s = MOMENT(x, 3)/(MOMENT(x, 2)^1.5)
+  #  s = s * sqrt(n * (n - 1))/(n - 2)
+  return(s)
+}
+
+KURT <- function(x){
+  MOMENT(x, 4)/(MOMENT(x, 2)^2)
+}
+
+####### Generate Figures and Tables #######
+
+### Read the table
+d = read.table(IN.FILE, sep = '\t', header = T, stringsAsFactors = F)
+
+### Parse the group list
+GROUP.LIST = as.factor(unlist(strsplit(GROUP.LIST, ',')))
+
+### Output Q-Q and P-P plots
+if ( OUT.PLOT == 'qq' | OUT.PLOT == 'both' ){
+  apply(d, 1, OUT.QQ, GROUP.LIST, PREFIX)
+}
+
+if ( OUT.PLOT == 'pp' | OUT.PLOT == 'both' ){
+  apply(d, 1, OUT.PP, GROUP.LIST, PREFIX)
+}
+```
+
+```{bash warning = FALSE, include = FALSE}
+
+mkdir ./PP-Plots
+mv *-PP* ./PP-Plots
+mkdir ./QQ-Plots
+mv *-QQ* ./QQ-Plots
+
+```
+
+```{r warning = FALSE, include = FALSE}
+### Do Test
+result = lapply(as.list(as.data.frame(t(d), stringsAsFactors = F)), NORM.TEST, GROUP.LIST)
+names(result) = d[[1]]
+result = as.array(result)
+
+TESTS = c('Skewness', 'Kurtosis', 
+            'Shapiro-Wilk', 
+            'Kolmogorov-Smirnov',
+            'Shapiro-Francia',
+            'Anderson-Darling',
+            'Cramer-von Mises',
+            'Pearson Chi-square',
+            'Jarque Bera')
+
+### Output the tables
+if (OUT.BY.TEST){
+  dir.create('./BY_TEST')
+  for (i in 1:length(TESTS)){
+    out.table = sapply(result, function(x) x[,1])
+    out.table = cbind(rownames(out.table), out.table)
+    colnames(out.table)[1] = "Group"
+    file.name = paste0(PREFIX, '-', TESTS[i], '.tsv')
+    file.name = paste0('./BY_TEST/', file.name)
+    write.table(out.table, file = file.name, sep = '\t', quote = F, col.names = T, row.names = F)
+  }
+}
+
+if (OUT.BY.VAR){
+  dir.create('./BY_VAR')
+  for (variable in names(result)){
+    out.table = result[[variable]]
+    out.table = cbind(rownames(out.table), out.table)
+    colnames(out.table)[1] = "Group"
+    file.name = paste0(PREFIX, '-', variable, '.tsv')
+    file.name = paste0('./BY_VAR/', file.name)
+    write.table(out.table, file = file.name, sep = '\t', quote = F, col.names = T, row.names = F)
+  }
+}
+```
+
+## Normality Test Report
+
+### Introduction
+Normality is a property of the data indicating that the variable of interest is from a **normal distribution**. Hypothesis test including student's *t* test and analysis of variance (ANOVA) as well as linear regression and pearson correlation test takes the assumption that the input data is normally distributed. However, if these methods are applied on data that are severely deviated from normal distribution, the accuracy and/or power of the test will be compromised to certain extend. Therefore, it is necessary to check the data normality before further statistical analysis. This report offers both the graphic tools (PP-Plots and QQ-Plots) and the results from the test on the normality. 
+
+### Q-Q and P-P Plots
+Q-Q plots and P-P plots compare the difference of percentile (P-P plots) or quantile (Q-Q plots) between the data and a theoretical normal distribution. The plots for the first variable in the input table are shown here. The observations of all groups were combined as a single sample and the plots were drawn. Plots for each single group and single varible can be found in the corresponding folders of [QQ-Plots](./QQ-Plots) and [PP-Plots](./PP-Plots) in the results folder.
+
+```{r echo = FALSE, fig.height = 5, fig.width = 10.8, fig.align = 'center'}
+sample = as.numeric(as.matrix(d)[1,][-1])
+n = length(sample)
+p = (1 : n) / n - 0.5 / n
+qqplot = ggplot() +
+         geom_qq(aes(sample = sample), 
+                 color = 'black', 
+                 size = 2) +
+         geom_abline(intercept = mean(sample), 
+                     slope = sd(sample), 
+                     color = 'red', 
+                     size = 1, 
+                     alpha = 0.8) +
+         ggtitle(label = 'Q-Q Plot') +
+         xlab(label = 'Sample Quantile') +
+         ylab(label = 'Theoretical Quantile') +
+         theme(plot.title = element_text(hjust = 0.5, size = 18)) + 
+         theme(axis.title = element_text(size = 14)) +
+         theme(axis.text = element_text(size = 12))
+
+ppplot = ggplot() +
+         geom_point(aes(y = p, 
+                        x = sort(pnorm(sample, mean(sample), sd(sample)))), 
+                        color = 'black', 
+                        size = 2) +
+         geom_abline(slope = 1, 
+                     color = 'red', 
+                     size = 1, 
+                     alpha = 0.8) +
+         xlim(0,1) + ylim(0,1) +
+         ggtitle(label = 'P-P Plot') +
+         xlab(label = 'Sample Percentile') +
+         ylab(label = 'Theoretical Percentile') +
+         theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+         theme(axis.title = element_text(size = 14)) +
+         theme(axis.text = element_text(size = 12))
+
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(ppplot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(qqplot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+
+
+
+```
+
+Each dot in these plots represent a single observation. For a sample that is approximately distributed normally, the data points should scatter near the red line in the plot. Notably, for hypothesis test like *t* test and ANOVA, both groups should hold the assumption of normality. One who read this report should refer to the plots for single group and single variable to see if these analysis methods should be applied. Other non-parametric methods like Wilcoxon rank-sum test may be more appropriate. 
+
+### Normality test
+Normality tests explore whether the data is significantly deviated from normal distribution. Therefore, the null hypothesis of these tests is that the data is from a normal distribution. P-value from these tests represents the significance of the evidence that the null hypothesis is violated. Here in this report, 7 different normality tests are implemented with their p values reported in the result tables. Also, skewness and kurtosis of the data are calculted. These two statistics could be used to estimate the deviation of the data from the normal distribution empirically. 
+
+Below is the table of the two statistics and the results from 7 normality tests. Each row is a variable in the input table and each column represents a type of result from the calculation or test on that variable. Similar as the Q-Q and P-P plots shown above, observations of all the groups are combined as a single sample. Ttables for each single variable which contain results from all tests on all groups can be found in the folder of [BY_VAR](./BY_VAR) if the corresponding option is selected. Similarly, tables for each single test which contain results for all groups and all variables can be found in the folder of [BY_TEST](./BY_TEST) if the corresponding option is selected.
+
+```{r echo = FALSE}
+
+display.table = t(sapply(as.list(as.data.frame(t(d), stringsAsFactors = F)), NORM.TEST, as.factor('a')))
+rownames(display.table) = d[[1]]
+colnames(display.table) = c('Skewness', 'Kurtosis', 
+                              'SW Test', 'KS Test',
+                              'SF Test', 'AD Test',
+                              'CM Test', 'Pearson χ2 Test',
+                              'JB Test')
+
+k = kable(display.table, format = 'html', digits = 3, align = 'c')
+kable_styling(k, font_size = 12)
+```
+
+* SW Test: Shapiro-Wilk Test
+* KS Test: Kolmogorov-Smirnov Test
+* SF Test: Shapiro-Francia Test
+* AD Test: Anderson-Darling Test
+* CM Test: Cramer-von Mises Test
+* JB Test: Jarque Bera Test
+
+For data following a normal distribution, the *p* value from normality tests should be less than a threshold like 0.05. The kurtosis and skewness of the data would be 3 and 0, respectively. Notably, Kolmogorov-Smirnov Test is implemented only when the sample size is larger than 4; Sharpiro-Francia Test is implemented only when the sample size is between 5 and 5000. Anderson-Darling Test and Cramer-von Mises Test are implemented when the sample size is greater than 7. 
+
+## Reference
+1. Thode, H. C. (2002). Testing for normality (Vol. 164). CRC press.
+2. Rosner, B. (2015). Fundamentals of biostatistics. Nelson Education.'
+3. Ghasemi, A., & Zahediasl, S. (2012). Normality tests for statistical analysis: a guide for non-statisticians. International journal of endocrinology and metabolism, 10(2), 486.
+4. Royston, P. (1992). Approximating the Shapiro-Wilk W-Test for non-normality. Statistics and Computing, 2(3), 117-119.
+5. Shapiro, S. S., & Francia, R. S. (1972). An approximate analysis of variance test for normality. Journal of the American Statistical Association, 67(337), 215-216.
+6. Stephens, M. A. (1986). Tests based on EDF statistics. Goodness-of-fit Techniques, 68, 97-193.
+7. Darling, D. A. (1957). The kolmogorov-smirnov, cramer-von mises tests. The Annals of Mathematical Statistics, 28(4), 823-838.
+8. Moore, D. S. (1986). Tests of chi-squared type. Goodness-of-fit techniques, 634(5).
+9. Jarque, C. M., & Bera, A. K. (1980). Efficient tests for normality, homoscedasticity and serial independence of regression residuals. Economics letters, 6(3), 255-259.
+
+## Result Folder
+Below is the structure of the result folder.
+
+* `r PREFIX`_LCNT.Report.html 
+* BY_TEST/ 
+* BY_VAR/
+* PP-Plots/
+* QQ-Plots/
+

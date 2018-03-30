@@ -1,0 +1,347 @@
+---
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: True
+    collapsed: False
+    theme: journal
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE,results='asis')
+# Package
+if(!'LCCor' %in% .packages(all.available=T)) install.packages(paste(getwd(),'/LCCor_1.0_R_x86_64-redhat-linux-gnu.tar.gz',sep=""),repos = NULL)
+library(LCCor)
+library(kableExtra)
+library(dplyr)
+```
+
+```{r BasicInfos, echo=FALSE, message=FALSE, warning=FALSE}
+# Basic Infos
+infos.DF = data.frame(c("{{contract}}",
+                        "{{project}}",
+                        "{{client}}",
+                        "{{institute}}",
+                        "{{types}}",
+                        "",
+                        "{{samples}}",
+                        "",
+                        "{{cormethod}}",
+                        "{{distmethod}}",
+                        "{{pthreshold}}",
+                        "{{rthreshold}}"))
+rownames(infos.DF) = c("Contract",
+                       "Project",
+                       "Client",
+                       "Institute",
+                       "Types",
+                       "",
+                       "Samples",
+                       " ",
+                       "Coefficient",
+                       "Distance Index",
+                       "P Threshold",
+                       "R Threshold")
+#LCCor::htmlTable(df = infos.DF,
+#                  caption = "Basic Information")
+```
+
+```{r include=FALSE}
+# Input
+infile1 = "{{infile1}}"
+infile2 = "{{infile2}}"
+# method
+cormethod  = strsplit("{{cormethod}}",split = ",")[[1]] # Can Be a List
+distmethod = "{{distmethod}}"                           # 1 Distance only
+rthreshold = as.numeric({{rthreshold}})
+pthreshold = as.numeric({{pthreshold}})
+# output
+outDir = "{{outDir}}"
+```
+
+```{r, include=FALSE}
+# First Columns is RowName
+intable1 = read.table(infile1,sep="\t",comment.char="@",header=T,row.names = 1)
+intable2 = read.table(infile2,sep="\t",comment.char="@",header=T,row.names = 1)
+intable1 = intable1[,colSums(intable1) != 0]
+intable2 = intable2[,colSums(intable2) != 0]
+# Deal with the Inf/-Inf
+is.na(intable1)<-sapply(intable1, is.infinite)
+intable1[is.na(intable1)] <- 0
+is.na(intable2)<-sapply(intable2, is.infinite)
+intable2[is.na(intable2)] <- 0
+#intable1[sapply(intable1,is.infinite)] = min(intable1)-min(intable1)*0.001
+#intable2[sapply(intable2,is.infinite)] = min(intable2)-min(intable2)*0.001
+```
+
+```{r echo=F,include=FALSE}
+dir.create(paste(outDir,"Correlation",sep = "/"),recursive=T)
+outDir = paste(outDir,"Correlation",sep = "/")
+dir.create(paste(outDir,"normal",sep = "/"),recursive=T)
+mantel.DF = ""
+for(method in cormethod){
+  dir.create(paste(outDir,method,sep = "/"),recursive=T)
+  corTable = corHeatmap(intable1,
+                        intable2,
+                        outDir = paste(outDir,method,sep = "/"),
+                        method = method,
+                        heigh  = 30+dim(intable1)[1]*0.1,
+                        width  = 30+dim(intable2)[1]*0.1,
+                        free = F)
+  corTEST  = corTESTHeatmap(intable1,
+                            intable2,
+                            outDir = paste(outDir,method,sep = "/"),
+                            method = method,
+                            heigh  = 30+dim(intable1)[1]*0.1,
+                            width  = 30+dim(intable2)[1]*0.1,
+                            free = F)
+  # FLT
+  RTABLE  = as.data.frame(corTEST$statistic)
+  PTABLE  = as.data.frame(corTEST$pvalue)
+  
+  RFLTTABLE = RTABLE[apply(PTABLE,1,function(x){min(x)})<pthreshold,apply(PTABLE,2,function(x){min(x)})<pthreshold] # 163x14
+  if (ncol(RFLTTABLE) <= 1){
+    print("There Nothing Here !! [FLT]")
+  }else{
+    RFLTTABLE = RFLTTABLE[apply(RFLTTABLE,1,function(x){max(x)})>rthreshold|apply(RFLTTABLE,1,function(x){min(x)})<(-rthreshold),
+                          apply(RFLTTABLE,2,function(x){max(x)})>rthreshold|apply(RFLTTABLE,2,function(x){min(x)})<(-rthreshold)] # 129x14
+    write.table(RFLTTABLE,file = paste(outDir,method,"cor.FLTspearman.xls",sep = "/"),sep = "\t", quote = F, row.names = T)
+    pheatmap(RFLTTABLE,
+             filename=paste(path.expand(outDir),"/",method,"/cor.",method,".FLTheatmap.png",sep = ""),
+             silent=FALSE,
+             color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+             border_color = "white",
+             width=30,
+             height=30)
+    pheatmap(RFLTTABLE,
+             filename=paste(path.expand(outDir),"/",method,"/cor.",method,".FLTheatmap.pdf",sep = ""),
+             silent=FALSE,
+             color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+             border_color = "white",
+             width=30,
+             height=30)
+  }
+  
+  PFLTTABLE = PTABLE[apply(RTABLE,1,function(x){max(x)})>rthreshold|apply(RTABLE,1,function(x){min(x)})<(-rthreshold),
+                     apply(RTABLE,2,function(x){max(x)})>rthreshold|apply(RTABLE,2,function(x){min(x)})<(-rthreshold)]       # 129x14
+  if (ncol(PFLTTABLE) <= 1){
+    print("There Nothing Here !! [FLT]")
+  }else{
+    PFLTTABLE = PFLTTABLE[apply(PFLTTABLE,1,function(x){min(x)})<pthreshold,apply(PFLTTABLE,2,function(x){min(x)})<pthreshold] #129x14
+    write.table(PFLTTABLE,file = paste(outDir,method,"sig.FLTspearman.xls",sep = "/"),sep = "\t", quote = F, row.names = T)
+    pheatmap(PFLTTABLE,
+             filename=paste(path.expand(outDir),"/",method,"/sig.",method,".FLTheatmap.png",sep = ""),
+             silent=FALSE,
+             color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+             border_color = "white",
+             width=30,
+             height=30)
+    pheatmap(PFLTTABLE,
+             filename=paste(path.expand(outDir),"/",method,"/sig.",method,".FLTheatmap.pdf",sep = ""),
+             silent=FALSE,
+             color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+             border_color = "white",
+             width=30,
+             height=30)
+  }
+
+  Mantel = mantelHeatmap(intable1,
+                         intable2,
+                         outDir = paste(outDir,method,sep = "/"),
+                         method = method,
+                         dist   = "{{distmethod}}",
+                         heigh  = 30+dim(intable1)[1]*0.1,
+                         width  = 30+dim(intable2)[1]*0.1)
+  mantel.DF = rbind(mantel.DF,Mantel$mantel)
+}
+
+X.NT.shapiro = NormalTEST(intable1)
+Y.NT.shapiro = NormalTEST(intable2)
+
+X.NT.ks = NormalTEST(intable1,method = "ks")
+Y.NT.ks = NormalTEST(intable2,method = "ks")
+
+X.df = data.frame(X   = X.NT.shapiro$Var, 
+                  Shapiro.Pvalues = X.NT.shapiro$ShapiroTest,
+                  KS.Pvalues = X.NT.ks$KSTest)
+
+Y.df = data.frame(Y   = Y.NT.shapiro$Var, 
+                  Shapiro.Pvalues = Y.NT.shapiro$ShapiroTest,
+                  KS.Pvalues = Y.NT.ks$KSTest)
+
+write.table(X.df,file = paste(outDir,"normal","X.normal.xls",sep = "/"),sep = "\t", quote = F, row.names = F)
+write.table(Y.df,file = paste(outDir,"normal","Y.normal.xls",sep = "/"),sep = "\t", quote = F, row.names = F)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+XY = cbind(intable1,intable2)
+
+library(ggplot2)
+for(v in colnames(XY)){
+  ggsave(QQ(X = XY[,colnames(XY)==v]),
+         filename =  paste(outDir,"/normal/qq.",as.character(v),".pdf",sep = ""),device = "pdf",units = "cm",
+         width    = 15,
+         height   = 15)
+  ggsave(
+    PP(X = XY[,colnames(XY)==v]),
+         filename =  paste(outDir,"/normal/pp.",as.character(v),".pdf",sep = ""),device = "pdf",units = "cm",
+         width    = 15,
+         height   = 15)
+}
+
+qqplot = QQ(XY[,colnames(XY)==v])
+ppplot = PP(XY[,colnames(XY)==v])
+```
+
+# Correlation Analysis
+
+<b>What's Correlation Analysis</b>
+
+[Correlation - wiki](https://en.wikiversity.org/wiki/Correlation) (co-relation) *refers to the degree of relationship (or dependency) between two variables.*
+*Linear correlation refers to straight-line relationships between two variables.*
+*A correlation can range between -1 (perfect negative relationship) and +1 (perfect positive relationship), with 0 indicating no straight-line relationship.*
+*The earliest known use of correlation was in the late 19th century.*
+
+*To Summarise, Correlation represents the similarities between two identities. Therefore, 1-correlation could be regarded as the distance. Actually, this type of distance has been well characterized in other fields of study including artificial intelligence and MACHINE LEARNING.*
+
+## Normality Test
+
+[Normality tests](https://en.wikipedia.org/wiki/Normality_test) *explore whether the data is significantly deviated from normal distribution. Therefore, the null hypothesis of these tests is that the data is from a normal distribution. P-value from these tests represents the significance of the evidence that the null hypothesis is violated. Here in this report, 2 different normality tests are implemented with their p values reported in the result tables.*
+
+<b>Why the normal test ? </b>
+*In statistics, normality tests are used to determine if a data set is well-modeled by a normal distribution and to compute how likely it is for a random variable underlying the data set to be normally distributed.*
+
+*In This Report, We provide 3 different Coefficient. But Select which coefficient? We Can Base on the Distribution of the data set.*
+
+### Shapiro-Wilk(W)
+*The Shapiro Wilk(W) test is a test of normality in frequentist statistics. It was published in 1965 by Samuel Sanford Shapiro and Martin Wilk.*
+
+### Kolmogorov-Smirnov(D)
+*The Kolmogorov Smirnov(D) test is a nonparametric test of the equality of continuous, one-dimensional probability distributions that can be used to compare a sample with a reference probability distribution (one sample KS test), or to compare two samples (two sample KS test). It is named after Andrey Kolmogorov and Nikolai Smirnov.*
+
+### Report Normality TEST Result
+*There are 2 different normality tests are implemented with their p values reported in the result tables* [below](./Correlation/normal/)*(Some Of the result was Display in the Report, you can Download the Result of the Normality TEST from *[Here](./Correlation/normal/)---- [X.normal.xls](./Correlation/normal/X.normal.xls) AND [Y.normal.xls](./Correlation/normal/Y.normal.xls)*).*
+    *X means the X Table input. Including all the Variables in the X Table.*
+    *Y means the Y Table input. Including all the Variables in the Y Table.*
+
+
+```{r display.XNTresult, echo=FALSE, fig.height=4, fig.width=8, message=FALSE, warning=FALSE}
+X.df.display = head(X.df)
+Y.df.display = head(Y.df)
+
+df.display = cbind(X.df.display,Y.df.display)
+htmlTable(df.display,caption = "Normality TEST Result (P Values)")
+
+ggMultiplot(qqplot, ppplot, cols = 2)
+```
+
+## Correlation Analysis
+*In* [Correlation Analysis](http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Multivariable/BS704_Multivariable5.html), *we estimate a sample correlation coefficient, more specifically the Pearson Product Moment correlation coefficient.*
+
+*ranges between -1 and +1 and quantifies the direction and strength of the linear association between the two variables. The correlation between two variables can be positive (i.e., higher levels of one variable are associated with higher levels of the other) or negative (i.e., higher levels of one variable are associated with lower levels of the other).*
+
+*The sign of the correlation coefficient indicates the direction of the association. The magnitude of the correlation coefficient indicates the strength of the association.*
+
+*For example, a correlation of r = 0.9 suggests a strong, positive association between two variables, whereas a correlation of r = -0.2 suggest a weak, negative association. A correlation close to zero suggests no linear association between two continuous variables.*
+
+### Coefficient Heatmap
+*The Coefficient Heatmap, Each cell was represent one Coefficient, Between 2 variables. Result Can Find From Here(*[{{cormethod}}](./Correlation)*).*
+```{r, echo=FALSE, fig.height=3, fig.width=10, message=FALSE, warning=FALSE}
+pheatmap(head(corTEST$statistic),
+         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+         border_color = "white",
+         cluster_rows = F,
+         cluster_cols = F,
+         #display_numbers = T,
+         #number_color = "white",
+         legend = F
+         )
+```
+
+## Correlation Test 
+<b>Correlation Test</b>:
+*Test for association between paired FACTOR, using one of Pearson's/Kendall's/Spearman's product moment correlation coefficient.*
+
+### P Values Heatmap
+*The P Values Heatmap, Each cell was represent one P Values, Between 2 variables Correlation Test Result. Result Can Find From Here(*[{{cormethod}}](./Correlation)*).*
+```{r, echo=FALSE, fig.height=3, fig.width=10, message=FALSE, warning=FALSE}
+pheatmap(head(corTEST$pvalue),
+         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+         border_color = "white",
+         cluster_rows = F,
+         cluster_cols = F,
+         #display_numbers = T,
+         #number_color = "white",
+         legend = F)
+```
+
+## Mental Test
+
+<b>Mantel Test</b>:
+*finds the Mantel statistic as a matrix correlation between TWO dissimilarity MATRIX, OR finds the PARTIAL Mantel statistic as the partial matrix correlation between THREE dissimilarity MATRICES. *
+
+### Mantel Test TABLE
+*Here is the Result of Mantel TEST, between X and Y dissimilarity(Default is 'euclidean') Matrix.*
+```{r display.Mantelresult, echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+mantel.DF.display = mantel.DF[2:nrow(mantel.DF),]
+htmlTable(mantel.DF.display,caption = "Mantel TEST Result",row.names = F)
+```
+
+### Coefficient Heatmap
+*Mantel TEST is For finding the Mantel statistic as a matrix correlation between TWO dissimilarity MATRIX, But Now We Split Each Variable As a Matrix, and Make a Dissimilarity of the Single Variable matrix.*
+*The Coefficient Heatmap, Each cell was represent one Coefficient, Between 2 variables.* 
+```{r, echo=FALSE, fig.height=3, fig.width=10, message=FALSE, warning=FALSE}
+pheatmap(head(Mantel$Stat),
+         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+         border_color = "white",
+         cluster_rows = F,
+         cluster_cols = F,
+         #display_numbers = T,
+         #number_color = "white",
+         legend = F)
+```
+
+### P Values Heatmap
+*The P Values Heatmap, Each cell was represent one P Values, Between 2 variables Mantel Test Result. *
+
+```{r, echo=FALSE, fig.height=3, fig.width=10, message=FALSE, warning=FALSE}
+pheatmap(head(Mantel$Sig),
+         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlGn")))(100),
+         border_color = "white",
+         cluster_rows = F,
+         cluster_cols = F,
+         #display_numbers = T,
+         #number_color = "white",
+         legend = F)
+```
+
+
+# Result Folder
+[Correlation](./Correlation)
+
++ [{{cormethod}}](./Correlation/{{cormethod}})
+    - [XLS - cor.Table](./Correlation/{{cormethod}}/cor.{{cormethod}}.xls)
+    - [XLS - sig.Table](./Correlation/{{cormethod}}/sig.{{cormethod}}.xls)
+    - [PNG - cor.Heatmap](./Correlation/{{cormethod}}/cor.{{cormethod}}.heatmap.png)
+    - [PDF - cor.Heatmap](./Correlation/{{cormethod}}/cor.{{cormethod}}.heatmap.pdf)
+    - [PNG - sig.Heatmap](./Correlation/{{cormethod}}/sig.{{cormethod}}.heatmap.png)
+    - [PDF - sig.Heatmap](./Correlation/{{cormethod}}/sig.{{cormethod}}.heatmap.pdf)
+    - [XLS - mantel.Table](./Correlation/{{cormethod}}/mantel.{{cormethod}}.xls)
+    - [XLS - mantel.cor.Table](./Correlation/{{cormethod}}/mantel.cor.{{cormethod}}.{{distmethod}}.xls)
+    - [XLS - mantel.sig.Table](./Correlation/{{cormethod}}/mantel.sig.{{cormethod}}.{{distmethod}}.xls)
+    - [PNG - mantel.cor.Heatmap](./Correlation/{{cormethod}}/mantel.cor.{{cormethod}}.{{distmethod}}.heatmap.png)
+    - [PDF - mantel.cor.Heatmap](./Correlation/{{cormethod}}/mantel.cor.{{cormethod}}.{{distmethod}}.heatmap.pdf)
+    - [PNG - mantel.sig.Heatmap](./Correlation/{{cormethod}}/mantel.sig.{{cormethod}}.{{distmethod}}.heatmap.png)
+    - [PDF - mantel.sig.Heatmap](./Correlation/{{cormethod}}/mantel.sig.{{cormethod}}.{{distmethod}}.heatmap.pdf)
+
+# Reference
+1. Thode, H. C. (2002). Testing for normality (Vol. 164). CRC press.
+2. Rosner, B. (2015). Fundamentals of biostatistics. Nelson Education.'
+3. Ghasemi, A., & Zahediasl, S. (2012). Normality tests for statistical analysis: a guide for non-statisticians. International journal of endocrinology and metabolism, 10(2), 486.
+4. Royston, P. (1992). Approximating the Shapiro-Wilk W-Test for non-normality. Statistics and Computing, 2(3), 117-119.
+5. Earliest Known Uses of Some of the Words of Mathematics (C)
+6. (1938) A new measure of rank correlation, Biometrika
+7. (1945) The treatment of ties in rank problems. Biometrika
+

@@ -1,0 +1,312 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: True
+    collapsed: False
+    theme: journal
+---
+
+
+```{r warning = FALSE, include = FALSE}
+
+require(tseries)
+require(nortest)
+require(ggplot2)
+require(fBasics)
+require(grid)
+require(knitr)
+require(kableExtra)
+
+####### Parameters #######
+
+OUT.PLOT               = {{OUT_PLOT}}                     # [none|qq|pp|both]
+GROUP.LIST             = {{GROUP_LIST}}                   # group names separated by comma
+PREFIX                 = {{PREFIX}}                       # prefix for all the output file
+OUT.BY.TEST            = {{OUT_BY_TEST}}                  # generate and save a table for each test
+OUT.BY.VAR             = {{OUT_BY_VAR}}                   # generate and save a tabel for each variable
+IN.FILE                = {{IN_FILE}}
+
+####### Functions #######
+
+OUT.QQ <- function(row, groups, prefix){
+  feature = row[1]
+  row = row[-1]
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    filename = paste0(prefix, '-', feature, '-', group, '-QQ.png')
+    subtitle = paste(group, '-', feature)
+    ggplot() +
+      geom_qq(aes(sample = row.sub), 
+              color = 'black', 
+              size = 2) +
+      geom_abline(intercept = mean(row.sub), 
+                  slope = sd(row.sub), 
+                  color = 'red', 
+                  size = 1, 
+                  alpha = 0.8) +
+      ggtitle(label = 'Q-Q Plot', subtitle = subtitle) +
+      xlab(label = 'Sample Quantile') +
+      ylab(label = 'Theoretical Quantile') +
+      theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) + 
+      theme(axis.title = element_text(size = 14)) +
+      theme(axis.text = element_text(size = 12)) +
+      ggsave(filename = filename)
+  }
+}
+
+OUT.PP <- function(row, groups, prefix){
+  feature = row[1]
+  row = row[-1]
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    n = length(row.sub)
+    p = (1 : n) / n - 0.5 / n
+    filename = paste0(prefix, '-', feature, '-', group, '-PP.png')
+    subtitle = paste(group, '-', feature)
+    ggplot() +
+      geom_point(aes(y = p, 
+                     x = sort(pnorm(row.sub, mean(row.sub), sd(row.sub)))), 
+                     color = 'black', 
+                     size = 2) +
+      geom_abline(slope = 1, 
+                  color = 'red', 
+                  size = 1, 
+                  alpha = 0.8) +
+      xlim(0,1) +
+      ylim(0,1) +
+      ggtitle(label = 'P-P Plot', subtitle = subtitle) +
+      xlab(label = 'Sample Percentile') +
+      ylab(label = 'Theoretical Percentile') +
+      theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) + 
+      theme(axis.title = element_text(size = 14)) +
+      theme(axis.text = element_text(size = 12)) +
+      ggsave(filename = filename)
+  }
+}
+
+NORM.TEST <- function(row, groups){
+  feature = row[1]
+  row = row[-1]
+  res = matrix(numeric(0), ncol = 9)
+  for (group in levels(groups)){
+    sub = (groups == group)
+    row.sub = as.numeric(row[sub])
+    skew_res = round(SKEW(row.sub), 4)
+    kurt_res = round(KURT(row.sub), 4)
+    sp_res = round(shapiro.test(row.sub)$p.value, 4)
+    ks_res = ifelse(length(row.sub) <= 4, NA, round(lillieTest(row.sub)@test$p.value, 4))
+    sf_res = ifelse(length(row.sub) <= 5 | length(row.sub) > 5000,
+                    NA, round(sf.test(row.sub)$p.value, 4))
+    ad_res = ifelse(length(row.sub) <= 7, NA, round(ad.test(row.sub)$p.value, 4))
+    cv_res = ifelse(length(row.sub) <= 7, NA, round(cvm.test(row.sub)$p.value, 4))
+    pcs_res = round(pearson.test(row.sub)$p.value, 4)
+    jb_res = round(jarqueberaTest(row.sub)@test$p.value, 4)
+    res.sub = c(skew_res, kurt_res, sp_res, ks_res, sf_res, ad_res, cv_res, pcs_res, jb_res)
+    res = rbind(res, res.sub)
+  }
+  colnames(res) = c('Skewness', 'Kurtosis', 
+                 'Shapiro-Wilk Test p.value', 
+                 'Kolmogorov-Smirnov Test p.value',
+                 'Shapiro-Francia Test p.value',
+                 'Anderson-Darling Test p.value',
+                 'Cramer-von Mises Test p.value',
+                 'Pearson Chi-square Test p.value',
+                 'Jarque Bera Test p.value')
+  rownames(res) = levels(groups)
+  return(res)
+}
+
+
+MOMENT <- function(x, n){
+  x = x-mean(x)
+  sum(x^n)/(length(x))
+}
+
+SKEW <- function(x){
+  n = length(x)
+  s = MOMENT(x, 3)/(MOMENT(x, 2)^1.5)
+  #  s = s * sqrt(n * (n - 1))/(n - 2)
+  return(s)
+}
+
+KURT <- function(x){
+  MOMENT(x, 4)/(MOMENT(x, 2)^2)
+}
+
+####### Generate Figures and Tables #######
+
+### Read the table
+d = read.table(IN.FILE, sep = '\t', header = T, stringsAsFactors = F)
+
+### Parse the group list
+GROUP.LIST = as.factor(unlist(strsplit(GROUP.LIST, ',')))
+
+### Output Q-Q and P-P plots
+if ( OUT.PLOT == 'qq' | OUT.PLOT == 'both' ){
+  apply(d, 1, OUT.QQ, GROUP.LIST, PREFIX)
+}
+
+if ( OUT.PLOT == 'pp' | OUT.PLOT == 'both' ){
+  apply(d, 1, OUT.PP, GROUP.LIST, PREFIX)
+}
+```
+
+```{bash warning = FALSE, include = FALSE}
+
+mkdir ./PP-Plots
+mv *-PP* ./PP-Plots
+mkdir ./QQ-Plots
+mv *-QQ* ./QQ-Plots
+
+```
+
+```{r warning = FALSE, include = FALSE}
+### Do Test
+result = lapply(as.list(as.data.frame(t(d), stringsAsFactors = F)), NORM.TEST, GROUP.LIST)
+names(result) = d[[1]]
+result = as.array(result)
+
+TESTS = c('Skewness', 'Kurtosis', 
+            'Shapiro-Wilk', 
+            'Kolmogorov-Smirnov',
+            'Shapiro-Francia',
+            'Anderson-Darling',
+            'Cramer-von Mises',
+            'Pearson Chi-square',
+            'Jarque Bera')
+
+### Output the tables
+if (OUT.BY.TEST){
+  dir.create('./BY_TEST')
+  for (i in 1:length(TESTS)){
+    out.table = sapply(result, function(x) x[,1])
+    out.table = cbind(rownames(out.table), out.table)
+    colnames(out.table)[1] = "Group"
+    file.name = paste0(PREFIX, '-', TESTS[i], '.tsv')
+    file.name = paste0('./BY_TEST/', file.name)
+    write.table(out.table, file = file.name, sep = '\t', quote = F, col.names = T, row.names = F)
+  }
+}
+
+if (OUT.BY.VAR){
+  dir.create('./BY_VAR')
+  for (variable in names(result)){
+    out.table = result[[variable]]
+    out.table = cbind(rownames(out.table), out.table)
+    colnames(out.table)[1] = "Group"
+    file.name = paste0(PREFIX, '-', variable, '.tsv')
+    file.name = paste0('./BY_VAR/', file.name)
+    write.table(out.table, file = file.name, sep = '\t', quote = F, col.names = T, row.names = F)
+  }
+}
+```
+
+## 正态性检验分析报告
+
+正态性是指所研究的变量服从或近似服从*正态分布*。包括t检验、方差分析（Analysis of variance, ANOVA）、线性回归分析、Pearson相关性分析等统计分析工具都要求数据符合正态性假设。如果这些方法应用于显著偏离正态分布的数据，分析的准确性和效力都会有所下降。因此，在选择统计工具进行分析前，首先应该对原始数据的分布情况进行检验。本报告同时提供了直观的图形分析工具（QQ图和PP图）以及正态性假设检验的结果作为数据正态性分析的参考。
+
+### QQ图和PP图
+QQ图和PP图通过比较数据本身的分位值（PP图）或分位数（QQ图）与理论值之间的差异，从而分析数据偏离正态分布的显著性。此处展示的是输入数据集中第一个变量的QQ图和PP图。图中，该变量在所有组中的取值作为一个单独的样本进行分析。每一个单独分组中，各个变量的QQ图和PP图可以在对应的结果文件夹：[QQ-Plots](./QQ-Plots)及 [PP-Plots](./PP-Plots)中找到。
+
+```{r echo = FALSE, fig.height = 5, fig.width = 10.8, fig.align = 'center'}
+sample = as.numeric(as.matrix(d)[1,][-1])
+n = length(sample)
+p = (1 : n) / n - 0.5 / n
+qqplot = ggplot() +
+         geom_qq(aes(sample = sample), 
+                 color = 'black', 
+                 size = 2) +
+         geom_abline(intercept = mean(sample), 
+                     slope = sd(sample), 
+                     color = 'red', 
+                     size = 1, 
+                     alpha = 0.8) +
+         ggtitle(label = 'Q-Q Plot') +
+         xlab(label = 'Sample Quantile') +
+         ylab(label = 'Theoretical Quantile') +
+         theme(plot.title = element_text(hjust = 0.5, size = 18)) + 
+         theme(axis.title = element_text(size = 14)) +
+         theme(axis.text = element_text(size = 12))
+
+ppplot = ggplot() +
+         geom_point(aes(y = p, 
+                        x = sort(pnorm(sample, mean(sample), sd(sample)))), 
+                        color = 'black', 
+                        size = 2) +
+         geom_abline(slope = 1, 
+                     color = 'red', 
+                     size = 1, 
+                     alpha = 0.8) +
+         xlim(0,1) + ylim(0,1) +
+         ggtitle(label = 'P-P Plot') +
+         xlab(label = 'Sample Percentile') +
+         ylab(label = 'Theoretical Percentile') +
+         theme(plot.title = element_text(hjust = 0.5, size = 18)) +
+         theme(axis.title = element_text(size = 14)) +
+         theme(axis.text = element_text(size = 12))
+
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(ppplot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(qqplot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+
+
+
+```
+
+上图中每一个点代表一个观测值。对于一个近似正态分布的样本，数据点近似线性排列。t检验和方差分析要求对于被检验的变量在每一个分组中均近似服从正态分布。因此，使用本报告时，应参考结果文件夹中每个变量在每个分组中分布的QQ图或PP图来综合考量是否选择参数检验法进行后续的差异分析。对于显著偏离正态分布的数据，可以采用诸如Wilcoxon秩和检验或Fisher-Pitman置换检验等工具进行差异分析。
+
+### 正态性假设检验
+正态性假设检验是对数据偏离正态分布的显著性程度进行检验。目前有多种正态性假设检验，这些检验的原假设即所观察到的样本来自于正态分布的总体。检验所得到的p值可以指征数据集偏离正态分布的显著性。本报告提供7中不同的正态检验结果供使用者参考。同时，报告中还包括了数据集中每个变量在各分组中的偏度和峰度，两者均是常用的判断数据正态性的经验统计量。
+
+下表展示了偏度、峰度及正态性检验的部分结果。每一行为数据集中的一个变量，每一列为一种统计量或检验的分析结果。与上述QQ图和PP图相似，此处展示的结果是将所有组中的同一变量合并在一个样本中进行分析，对于下游差异分析方法的选择，使用者应参考结果文件夹中每个分组内，变量的统计量和正态性检验结果。单个变量在不同组中的正态性检验结果可以在[BY_VAR](./BY_VAR)中找到，单个检验方法用于所有变量和所有组的结果可以在[BY_TEST](./BY_TEST)中找到。
+
+```{r echo = FALSE}
+
+display.table = t(sapply(as.list(as.data.frame(t(d), stringsAsFactors = F)), NORM.TEST, as.factor('a')))
+rownames(display.table) = d[[1]]
+colnames(display.table) = c('Skewness', 'Kurtosis', 
+                              'SW Test', 'KS Test',
+                              'SF Test', 'AD Test',
+                              'CM Test', 'Pearson χ2 Test',
+                              'JB Test')
+
+k = kable(display.table, format = 'html', digits = 3, align = 'c')
+kable_styling(k, font_size = 12)
+```
+
+* SW Test: Shapiro-Wilk 检验
+* KS Test: Kolmogorov-Smirnov 检验
+* SF Test: Shapiro-Francia 检验
+* AD Test: Anderson-Darling 检验
+* CM Test: Cramer-von Mises 检验
+* JB Test: Jarque Bera 检验
+
+当检验得到的p值低于某一阈值（通常为0.05时），可以认为变量服从或近似服从正态分布。对于正态分布而言，其峰度和偏度分别为3和0。因此根据变量的实际峰度和偏度可以判断其偏离正态分布的程度。值得注意的是，Kolmogorov-Smirnov检验要求样本容量大于4；Sharpiro-Francia检验要求样本容量在5-5000之间，Anderson-Darling检验和Cramer-von Mises 检验要求样本容量大于7。报告中上述检验在单个分组的样本容量不满足的情况下没有结果。
+
+## 参考文献
+1. Thode, H. C. (2002). Testing for normality (Vol. 164). CRC press.
+2. Rosner, B. (2015). Fundamentals of biostatistics. Nelson Education.'
+3. Ghasemi, A., & Zahediasl, S. (2012). Normality tests for statistical analysis: a guide for non-statisticians. International journal of endocrinology and metabolism, 10(2), 486.
+4. Royston, P. (1992). Approximating the Shapiro-Wilk W-Test for non-normality. Statistics and Computing, 2(3), 117-119.
+5. Shapiro, S. S., & Francia, R. S. (1972). An approximate analysis of variance test for normality. Journal of the American Statistical Association, 67(337), 215-216.
+6. Stephens, M. A. (1986). Tests based on EDF statistics. Goodness-of-fit Techniques, 68, 97-193.
+7. Darling, D. A. (1957). The kolmogorov-smirnov, cramer-von mises tests. The Annals of Mathematical Statistics, 28(4), 823-838.
+8. Moore, D. S. (1986). Tests of chi-squared type. Goodness-of-fit techniques, 634(5).
+9. Jarque, C. M., & Bera, A. K. (1980). Efficient tests for normality, homoscedasticity and serial independence of regression residuals. Economics letters, 6(3), 255-259.
+
+## 结果文件
+以下是结果文件夹的目录结构：
+
+* `r PREFIX`_LCNT.Report.html 
+* BY_TEST/ 
+* BY_VAR/
+* PP-Plots/
+* QQ-Plots/
+

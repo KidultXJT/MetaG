@@ -1,0 +1,55 @@
+---
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: True
+    collapsed: False
+    theme: journal
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE,results='asis')
+# Package
+if(!'LCCor' %in% .packages(all.available=T)) install.packages(paste(getwd(),'/LCCor_1.0_R_x86_64-redhat-linux-gnu.tar.gz',sep=""),repos = NULL)
+library(LCCor)
+library(kableExtra)
+```
+
+```{r include=FALSE}
+# Input
+corfile = "{{outDir}}/Correlation/{{method}}/cor.{{method}}.xls"
+sigfile = "{{outDir}}/Correlation/{{method}}/sig.{{method}}.xls"
+
+m.corfile = "{{outDir}}/Correlation/{{method}}/mantel.cor.{{method}}.{{distmethod}}.xls"
+m.sigfile = "{{outDir}}/Correlation/{{method}}/mantel.sig.{{method}}.{{distmethod}}.xls"
+
+outDir = "{{outDir}}"
+
+cor = read.table(corfile)
+sig = read.table(sigfile)
+
+m.cor = read.table(m.corfile)
+m.sig = read.table(m.sigfile)
+```
+
+# Coefficient Heatmap
+```{r CHd3heatmap, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+d3hm(cor,brwCol="RdYlGn")
+```
+
+# P values Heatmap
+```{r PHd3heatmap, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+d3hm(sig,brwCol="RdYlGn")
+```
+
+# Mantel TEST Coefficient Heatmap
+```{r mCHd3heatmap, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+d3hm(m.cor,brwCol="RdYlGn")
+```
+
+# Mantel TEST P values Heatmap
+```{r mPHd3heatmap, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+d3hm(m.sig,brwCol="RdYlGn")
+```

@@ -1,0 +1,46 @@
+exportPattern("^[[:alpha:]]+")
+
+export(
+  # Big Analysis Function
+  corHeatmap,
+  mantelHeatmap,
+  veganCCA,
+  veganCCAenvfit,
+  NormalTEST,
+  QQ,
+  PP,
+  
+  # SomeThings about Theme
+  reportStyle,
+  
+  # Multi
+  ggMultiplot,
+  
+  # ggplot Basic Graph
+  ggBasicPoint,
+  ggBasicText,
+  
+  # Statistic Ordination
+  sumCCA,
+  sumCCAenvfit,
+
+  # miniReport
+  htmlTable,
+  
+  # Advance
+  d3hm
+)
+
+
+
+import(RColorBrewer,
+       ggplot2,
+       gtable,
+       grid,
+       pheatmap,
+       scales,
+       vegan,
+       knitr,
+       #plotly, # devtools::install_github('hadley/ggplot2')
+       kableExtra,
+       rmarkdown)
