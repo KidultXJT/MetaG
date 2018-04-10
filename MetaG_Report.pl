@@ -35,10 +35,14 @@ my $tree_seed  = $report->{presets}->{MetaG}[0][1];
 my @sample_list = ("hsm2-1","msm2-1","ksm2-1","ssm2-1","hsm2-2","ksm2-2","msm2-2","ssm2-2","hsm2-3","ksm2-3","msm2-3","ssm2-3","hsm3-1","ksm3-1","msm3-1","ssm3-1","hsm3-2","ksm3-2","msm3-2","ssm3-2","hsm3-3","ksm3-3","msm3-3","ssm3-3");
 my @tax_list = ("Kingdom","Phylum","Class","Order","Family","Genus","Species");
 my @beta_list = ("BrayCurtis","Euclidean","Mahalanobis","Jaccard","CorSpearman");
-my @group_list  = ();
+my @group_list  = ("hsm","msm","ksm","ssm");
 my @sdiff_list  = ();
 my @gdiff_list  = ();
 my %groups;
+@{$groups{hsm}} = ("hsm2-1", "hsm2-2", "hsm2-3", "hsm3-1", "hsm3-2", "hsm3-3");
+@{$groups{msm}} = ("msm2-1", "msm2-2", "msm2-3", "msm3-1", "msm3-2", "msm3-3");
+@{$groups{ksm}} = ("ksm2-1", "ksm2-2", "ksm2-3", "ksm3-1", "ksm3-2", "ksm3-3");
+@{$groups{ssm}} = ("ssm2-1", "ssm2-2", "ssm2-3", "ssm3-1", "ssm3-2", "ssm3-3");
 my $tmp;
 my @tmp;
 my %tmp;
@@ -69,13 +73,13 @@ my @sample_info;
 $tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", @sample_list;
 @{$sample_info[0]} = ("样品名称", $tmp);
 @tmp = @sdiff_list;
-#$tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", map { s#:# <span class="project_info_diff">&harr;</span> #g; $_; } @tmp;
-#@{$sample_info[1]} = ("样品间差异方案(对照/处理)", $tmp);
-#$tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", @group_list;
-#foreach my $group (@group_list){
-#my $g = join " <span class=\"project_info_and\">&amp;</span> ", @{$groups{$group}};
-#$tmp =~ s#$group# <span class="project_info_group_lab">$group : </span>$g#;
-#}
+$tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", map { s#:# <span class="project_info_diff">&harr;</span> #g; $_; } @tmp;
+@{$sample_info[1]} = ("样品间差异方案(对照/处理)", $tmp);
+$tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", @group_list;
+foreach my $group (@group_list){
+my $g = join " <span class=\"project_info_and\">&amp;</span> ", @{$groups{$group}};
+$tmp =~ s#$group# <span class="project_info_group_lab">$group : </span>$g#;
+}
 @{$sample_info[2]} = ("分组方案", $tmp);
 @tmp = @gdiff_list;
 $tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", map { s#:# <span class="project_info_diff">&harr;</span> #g; $_; } @tmp;
@@ -83,7 +87,7 @@ $tmp = join " <span class=\"project_info_separator\">&brvbar;</span> ", map { s#
 $body->table(array => \@sample_info, caption => "样品信息", table_header => "none");
 
 ###########################################################
-
+@tmp=();
 $body->title(text => "宏基因组概念", level => 1);
 $body->text(text => $presets->{metagenome}->{intro});
 $body->text(text => $presets->{metagenome}->{diff});
@@ -473,6 +477,7 @@ $body->simList(list => $presets->{lefse}->{result}->{res_image_footer});
 #$body->text(text => $presets->{lcgd}->{result}->{ttest_text});
 ###########################################################
 $body->title(text => "基因预测与分析", level => 1);
+$body->title(text => "基因序列统计", level => 2);
 $body->simList(text => $presets->{genepred}->{intro}, list => $presets->{genepred}->{list});
 @tmp = ();
 %{$tmp[0]} = (title => "基因预测", desc => "结果文件夹", href => $presets->{genepred}->{result}->{href});
@@ -484,15 +489,86 @@ $hf{footer}->simList(list => $presets->{genepred}->{eval_list});
 @tmp = ();
 @tmp = ("%NAME%FNA_Length.PNG","%NAME%FAA_Length.PNG");
 @tmp_text = ("%NAME% 核酸长度分布图","%NAME% 氨基酸长度分布");
-my @gclass = ("raw","uniflt");
+my @gclass = ("Raw","FLT");
 $tmp_images = dir2array(samples => \@gclass, path => $presets->{genepred}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
 %hf = $body->images(array => $tmp_images, god => $report, header => 1, footer => 1);
 $hf{header}->text(text => $presets->{genepred}->{len_header});
 $hf{footer}->simList(list => $presets->{genepred}->{len_footer});
 
-#$body->image(image => $presets->{genepred}->{type_image}, text => $presets->{genepred}->{type_text});
+$body->image(image => $presets->{genepred}->{type_image}, text => $presets->{genepred}->{type_text});
+
+#############################################################
+$body->title(text => "基因丰度以及差异分析", level => 1);
+$body->text(text => $presets->{geneab}->{intro});
+@tmp = ();
+%{$tmp[0]} = (title => "基因丰度", desc => "结果文件夹", href => $presets->{geneab}->{result}->{href});
+$body->advList(array => \@tmp);
+$table = ();
+$table = file2array(file => $presets->{geneab}->{result}->{table}, cols => "1-10");
+$body->table(array => $table, caption => "基因丰度结果表格", file_link => $presets->{geneab}->{result}->{table});
+$body->image(image => $presets->{geneab}->{result}->{venn_image}, text => $presets->{geneab}->{result}->{venn_text});
+
+##############################################################
+$body->title(text => "基因丰度热图", level => 2);
+$body->text(text => $presets->{geneheatmap}->{intro});
+@tmp = ();
+%{$tmp[0]} = (title => "基因丰度热图", desc => "结果文件夹", href => $presets->{geneheatmap}->{result}->{href});
+$body->advList(array => \@tmp);
+@tmp = ();
+@tmp = ("%NAME%_Dominant_Heatmap.png",  "%NAME%_Dominant_cHeatmap.png", "%NAME%_Dominant_rHeatmap.png");
+@tmp_text = ("%NAME% 基因相对丰度热图", "%NAME% 基因相对丰度热图(Column)", "%NAME% 基因相对丰度热图(Row)");
+my @geneclass = ("Gene");
+$tmp_images = dir2array(samples => \@geneclass, path => $presets->{geneheatmap}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
+%hf = $body->images(array => $tmp_images, god => $report, footer => 1);
+$hf{footer}->simList(list => $presets->{geneheatmap}->{result}->{footer});
+#$body->text(text => $presets->{heatmap}->{result}->{explain});
 
 ##########################################################
+$body->title(text => "(基因)样品间差异分析", level => 2);
+$body->text(text => $presets->{genediv}->{intro});
+@tmp = ();
+%{$tmp[0]} = (title => "样品间差异", desc => "结果文件夹", href => $presets->{genediv}->{result}->{href});
+$body->advList(array => \@tmp);
+$table = ();
+$table = file2array(file => $presets->{genediv}->{result}->{table}, cols=>"1-10");
+$body->table(array => $table, caption => "样品间距离矩阵", file_link => $presets->{genediv}->{result}->{table});
+@tmp = ();
+@tmp = ("%NAME%_Dominant_Euclidean_ClusterDendrogram.png");
+@tmp_text = ("%NAME% 聚类树图");
+$tmp_images = dir2array(samples => \@geneclass, path => $presets->{genediv}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
+$body->images(array => $tmp_images, god => $report);
+
+##########################################################
+$body->title(text => "(基因)样品间相关性分析", level => 2);
+$body->text(text => $presets->{genecor}->{intro});
+@tmp = ();
+%{$tmp[0]} = (title => "样品间相关性", desc => "结果文件夹", href => $presets->{genecor}->{result}->{href});
+$body->advList(array => \@tmp);
+$table = ();
+$table = file2array(file => $presets->{genecor}->{result}->{div_table}, cols=>"1-10");
+$body->table(array => $table, caption => "样品间距离矩阵", file_link => $presets->{genecor}->{result}->{div_table});
+@tmp = ();
+@tmp = ("%NAME%_Dominant_CorSpearman_div.png","%NAME%_Dominant_CorSpearman_div.Half.png");
+@tmp_text = ("%NAME% 矩阵热图","%NAME% 三角热图");
+$tmp_images = dir2array(samples => \@geneclass, path => $presets->{genecor}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
+$body->images(array => $tmp_images, god => $report);
+
+##########################################################
+$body->title(text => "基因间相关性分析", level => 2);
+#$body->text(text => $presets->{genecor}->{intro});
+@tmp = ();
+%{$tmp[0]} = (title => "基因间相关性", desc => "结果文件夹", href => $presets->{genecor}->{result}->{href});
+$body->advList(array => \@tmp);
+$table = ();
+$table = file2array(file => $presets->{genecor}->{result}->{gene_table}, cols=>"1-10");
+$body->table(array => $table, caption => "样品间距离矩阵", file_link => $presets->{genecor}->{result}->{gene_table});
+@tmp = ();
+@tmp = ("%NAME%_Dominant_CorSpearman.png");
+@tmp_text = ("%NAME% 矩阵热图");
+$tmp_images = dir2array(samples => \@geneclass, path => $presets->{genecor}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
+$body->images(array => $tmp_images, god => $report);
+
+########################################################################
 $body->title(text => "(预测)基因功能注释", level => 1);
 $body->simList(text => $presets->{func}->{intro}, list => $presets->{func}->{list});
 $body->text(text => $presets->{func}->{text});
@@ -587,6 +663,39 @@ my @eggnog_lst=("COG","EggNOG");
 $tmp_images = dir2array(samples => \@eggnog_lst, path => $presets->{eggnog}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
 %hf = $body->images(array => $tmp_images, god => $report, footer => 1);
 $hf{footer}->simList(list => $presets->{eggnog}->{result}->{cog_image_footer});
+
+######################################################################################
+$body->title(text => "CAZy", level => 2);
+$body->text(text => $presets->{cazy}->{intro});
+$table = ();
+$table = file2array(file => $presets->{cazy}->{infos});
+$body->table(array => $table);
+$body->text(text => $presets->{cazy}->{text});
+@tmp = ();
+%{$tmp[0]} = (title => "CAZy注释", desc => "结果文件夹", href => $presets->{cazy}->{result}->{href});
+$body->advList(array => \@tmp);
+
+$body->text(text => $presets->{cazy}->{anno_text});
+$table = ();
+$table = file2array(file => $presets->{cazy}->{result}->{cazy_table}, cols => "1,2,5,6,7");
+%hf = $body->table(array => $table, caption => "CAZy注释结果表格", file_link => $presets->{cazy}->{result}->{cazy_table}, footer => 1);
+$hf{footer}->simList(list => $presets->{cazy}->{result}->{cazy_footer});
+$table = ();
+$table = file2array(file => $presets->{cazy}->{result}->{class_table});
+%hf = $body->table(array => $table, caption => "CAZy-Class注释结果表格", file_link => $presets->{cazy}->{result}->{class_table},footer => 1);
+$hf{footer}->simList(list => $presets->{cazy}->{result}->{class_footer});
+$table = ();
+$table = file2array(file => $presets->{cazy}->{result}->{family_table});
+%hf = $body->table(array => $table, caption => "CAZy-Family注释结果表格", file_link => $presets->{cazy}->{result}->{family_table},footer => 1);
+$hf{footer}->simList(list => $presets->{cazy}->{result}->{family_footer});
+
+my @cazy_lst=("Level1","Level2");
+@tmp = ();
+@tmp = ("SG.CAZy_%NAME%_FreqBar.png");
+@tmp_text = ("%NAME% 注释(频率)统计柱状图");
+$tmp_images = dir2array(samples => \@cazy_lst, path => $presets->{cazy}->{result}->{href}, pattern => \@tmp, text => \@tmp_text);
+%hf = $body->images(array => $tmp_images, god => $report, footer => 1);
+$hf{footer}->simList(list => $presets->{cazy}->{result}->{cazy_image_footer});
 
 ######################################################################################
 # Function Differential Analysis
